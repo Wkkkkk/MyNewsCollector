@@ -1,7 +1,7 @@
 ---
 name: zhihu-fetcher
-description: "知乎收藏夹与个人历史（点赞/收藏）抓取：API 优先、Playwright 降级，批量下载正文 Markdown 与本地图片、断点续传、Cookie 保活、保守格式化、写入 Obsidian。Use whenever the user mentions 知乎/Zhihu, pastes a zhihu.com or zhuanlan.zhihu.com link, mentions 收藏夹/collections, 点赞/收藏历史, batch article download/批量抓取, Zhihu cookies/登录/验证码, or wants to sync Zhihu content into Obsidian — even if they don't name this skill explicitly."
-version: "1.2.0"
+description: "Use when the user needs to run, resume, or fix a Zhihu (知乎) content extraction job — this skill provides Python scripts for the full pipeline. Trigger on: executing a batch download of a 收藏夹 collection or liked/saved answer history; resuming an interrupted scrape (续传, 断点续传, or referencing an existing output directory like zhihu_articles_*/); recovering from cookie expiry or anti-scraping blocks (安全验证) during a scrape; or syncing extracted articles into Obsidian as Markdown with local images. The key signal is action intent — the user wants Zhihu content extracted to their machine, not just information about Zhihu. Skip for: browsing or searching Zhihu, writing Zhihu posts, or general Zhihu feature questions."
+version: "1.3.0"
 user-invocable: true
 argument-hint: "[可选：收藏夹 URL 或 ID、单篇链接、输出目录、Vault 路径]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch
