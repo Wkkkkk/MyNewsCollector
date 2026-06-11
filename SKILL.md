@@ -1,10 +1,9 @@
 ---
 name: zhihu-fetcher
 description: "Use when the user needs to run, resume, or fix a Zhihu (知乎) content extraction job — this skill provides Python scripts for the full pipeline. Trigger on: executing a batch download of a 收藏夹 collection or liked/saved answer history; resuming an interrupted scrape (续传, 断点续传, or referencing an existing output directory like zhihu_articles_*/); recovering from cookie expiry or anti-scraping blocks (安全验证) during a scrape; or syncing extracted articles into Obsidian as Markdown with local images. The key signal is action intent — the user wants Zhihu content extracted to their machine, not just information about Zhihu. Skip for: browsing or searching Zhihu, writing Zhihu posts, or general Zhihu feature questions."
-version: "1.3.0"
-user-invocable: true
-argument-hint: "[可选：收藏夹 URL 或 ID、单篇链接、输出目录、Vault 路径]"
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch
+metadata:
+  version: "1.3.0"
 ---
 
 # 知乎数据抓取
