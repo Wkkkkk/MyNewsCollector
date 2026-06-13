@@ -17,6 +17,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from zhihu_obsidian_config import resolve_root_folder
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 CATEGORY_RULES = {
@@ -189,19 +191,28 @@ def unique_path(path):
 
 
 def resolve_history_root(zhihu_dir, folder_name):
-    if folder_name in ("", ".", "root", "知乎收藏"):
+    if folder_name in ("", ".", "root", "知乎收藏", "Zhihu Collection"):
         return zhihu_dir
     return zhihu_dir / folder_name
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("用法: python write_zhihu_history_to_obsidian.py <article-dir> <vault-path> [folder-name]")
-        sys.exit(1)
+    import argparse
 
-    source_dir = Path(sys.argv[1]).expanduser().resolve()
-    vault_path = Path(sys.argv[2]).expanduser().resolve()
-    folder_name = sys.argv[3] if len(sys.argv) >= 4 else "."
+    parser = argparse.ArgumentParser(
+        description="Import Zhihu like/save history articles into an Obsidian vault."
+    )
+    parser.add_argument("article_dir")
+    parser.add_argument("vault_path")
+    parser.add_argument("folder_name", nargs="?", default=".",
+                        help="Subfolder under the root; '.' means the root itself")
+    parser.add_argument("--root-folder", default=None,
+                        help="Obsidian root folder name (default: env ZHIHU_OBSIDIAN_ROOT or 'Zhihu Collection')")
+    args = parser.parse_args()
+
+    source_dir = Path(args.article_dir).expanduser().resolve()
+    vault_path = Path(args.vault_path).expanduser().resolve()
+    folder_name = args.folder_name
 
     if not source_dir.exists():
         print(f"article dir not found: {source_dir}")
@@ -210,7 +221,7 @@ def main():
         print(f"vault path not found: {vault_path}")
         sys.exit(1)
 
-    zhihu_dir = vault_path / "知乎收藏"
+    zhihu_dir = vault_path / resolve_root_folder(args.root_folder)
     history_dir = resolve_history_root(zhihu_dir, folder_name)
     history_dir.mkdir(parents=True, exist_ok=True)
     url_index = build_url_index(history_dir)
