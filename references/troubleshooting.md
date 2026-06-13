@@ -1,29 +1,29 @@
-# 已知问题与故障排查
+# Known Issues and Troubleshooting
 
-## 已知问题与对策
+## Known Issues and Mitigations
 
-| # | 现象 / 原因 | 处理 |
-|---|-------------|------|
-| 1 | **Cookie 失效**：标题「安全验证」、`/account/unhuman` | **自动恢复**：脚本内置 3 次重试（激进保活：访问文章页+模拟阅读）；仍失败则 `zhihu_relogin.py`。详见 [cookie-keepalive.md](cookie-keepalive.md) |
-| 2 | **收藏夹 API 分页**：带 `include` 时列表可能被截断 | `fetch_zhihu_collection.py` 已内置 API ↔ DOM 切换；必要时减少 `include` 或走浏览器分页 |
-| 3 | **反爬**：Headless 被识别 | Stealth、UA、间隔；必要时 `fetch_zhihu_interactive.py` |
-| 4 | **API 正文不完整**：`include` 只给摘要 | 批量与单篇流程中已优先**页面 DOM** 拉全文 |
-| 5 | **图片下载失败** | 正文仍保留原 URL；排查网络、Referer、过期链接 |
-| 6 | **Windows 控制台 GBK** | 脚本已 `sys.stdout.reconfigure(encoding='utf-8')` |
-| 7 | **批量中断** | 直接再次运行 `fetch_zhihu_batch.py`，依赖 `_progress.json` |
-| 8 | **失败项累积** | 散发失败自动记录到 `_progress.json`（含 url/reason/title/timestamp）；连续失败 ≥5 次中断并丢弃缓存；用 `--retry-failed` 可重试。详见 [failure-handling.md](failure-handling.md) |
+| # | Symptom / Cause | Resolution |
+|---|-----------------|------------|
+| 1 | **Cookie expiry:** page title shows 安全验证 (security-check page), redirect to `/account/unhuman` | **Auto-recovery:** script retries up to 3 times (aggressive keep-alive: visits article page + simulates reading); if still failing, run `zhihu_relogin.py`. See [cookie-keepalive.md](cookie-keepalive.md) |
+| 2 | **Collection API pagination:** list may be truncated when `include` parameter is set | `fetch_zhihu_collection.py` has built-in API ↔ DOM switching; if needed, reduce `include` fields or use browser-based pagination |
+| 3 | **Anti-scraping:** headless browser detected | Stealth mode, UA rotation, request intervals; if still blocked, use `fetch_zhihu_interactive.py` |
+| 4 | **Incomplete API body:** `include` returns only a summary | Both batch and single-article flows already prefer **page DOM** for full content |
+| 5 | **Image download failures** | Body text still retains the original URL; check network, Referer header, and link expiry |
+| 6 | **Windows console GBK encoding** | Scripts already call `sys.stdout.reconfigure(encoding='utf-8')` |
+| 7 | **Batch fetch interrupted** | Simply re-run `fetch_zhihu_batch.py`; it resumes from `_progress.json` |
+| 8 | **Accumulated failures** | Scattered failures are recorded automatically in `_progress.json` (with `url` / `reason` / `title` / `timestamp`); 5+ consecutive failures abort the run and discard the buffer; use `--retry-failed` to retry. See [failure-handling.md](failure-handling.md) |
 
-## 故障排查流程
+## Troubleshooting Flowchart
 
 ```
-正文全空？
-  → Cookie（含 z_c0）→ 是否跳转验证页 → zhihu_relogin.py
+Empty article body?
+  → Check cookie (including z_c0) → redirected to verification page? → zhihu_relogin.py
 
-图片失败？
-  → URL/网络/Referer → Markdown 中仍可保留链接
+Image failures?
+  → Check URL / network / Referer → link can still be kept in the Markdown
 
-批量中途停止？
-  → 确认 _progress.json → 原命令重跑
+Batch stopped mid-run?
+  → Inspect _progress.json → re-run the original command
 ```
 
-排查 `_progress.json` 或本地已抓取 Markdown 时，直接用 `Read` / `Grep` 工具，无需脚本。
+When inspecting `_progress.json` or locally fetched Markdown files, use the `Read` / `Grep` tools directly — no script needed.
