@@ -1,9 +1,9 @@
 ---
 name: zhihu-fetcher
-description: "Use when the user needs to run, resume, or fix a Zhihu (知乎) content extraction job — this skill provides Python scripts for the full pipeline. Trigger on: executing a batch download of a 收藏夹 collection or liked/saved answer history; resuming an interrupted scrape (续传, 断点续传, or referencing an existing output directory like zhihu_articles_*/); recovering from cookie expiry or anti-scraping blocks (安全验证) during a scrape; or syncing extracted articles into Obsidian as Markdown with local images. The key signal is action intent — the user wants Zhihu content extracted to their machine, not just information about Zhihu. Skip for: browsing or searching Zhihu, writing Zhihu posts, or general Zhihu feature questions."
+description: "Use when the user wants Zhihu (知乎) content pulled onto their machine. Triggers: download or archive a collection (收藏夹) of answers/articles; batch-fetch article bodies as Markdown with local images (批量下载/批量抓取); resume an interrupted scrape (续传/断点续传) or point at an existing zhihu_articles_*/ output dir; recover from cookie expiry, login, or an anti-scraping check (安全验证) during a scrape; export liked/saved history (点赞/收藏历史) or a 专栏 author's articles; fix mangled Markdown exported from Zhihu; or sync any of the above into an Obsidian vault. Works whether the user writes in Chinese or English. Not for: browsing or searching Zhihu, writing Zhihu posts, or general questions about Zhihu features/membership."
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # 知乎数据抓取
@@ -18,7 +18,7 @@ metadata:
 
 ## 环境与约定
 
-- **语言**：默认与用户语种一致。
+- **Language**: This skill is authored in English; respond and produce content in the user's language.
 - **技能根目录**：下文 `${CLAUDE_SKILL_DIR}` 表示本 skill 仓库根目录（部分宿主 UI 中写作 `{baseDir}`，含义相同）。脚本均在 `scripts/` 下。
 - **工作区目录** `{workspace}`：由环境变量 **`OPENCLAW_WORKSPACE`** 指定，未设置时为 `~/.openclaw/workspace/`；存放 Cookie、浏览器数据与默认输出。详见 [references/paths.md](references/paths.md)。
 - **依赖**：在 `scripts/` 下执行 `pip install -r requirements.txt`，并 `playwright install chromium`。
