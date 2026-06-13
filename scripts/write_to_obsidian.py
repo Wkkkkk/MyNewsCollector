@@ -20,6 +20,8 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
+from zhihu_obsidian_config import resolve_root_folder
+
 
 def env_vault_candidate_paths():
     """
@@ -108,13 +110,13 @@ def detect_obsidian_vault():
     return candidates
 
 
-def detect_existing_categories(vault_path):
+def detect_existing_categories(vault_path, root_folder):
     """
     扫描 Obsidian Vault 中已有的分类目录。
     返回: {分类名: 文章数量}
     """
     categories = {}
-    zhihu_dir = os.path.join(vault_path, '知乎收藏')
+    zhihu_dir = os.path.join(vault_path, root_folder)
 
     # 扫描知乎收藏目录下的分类
     if os.path.exists(zhihu_dir):
@@ -236,20 +238,20 @@ def clean_content_for_obsidian(content):
     return content
 
 
-def sync_images(source_dir, vault_path):
+def sync_images(source_dir, vault_path, root_folder):
     """同步图片到 Obsidian Vault"""
     # 查找图片目录
     source_images_dir = os.path.join(source_dir, 'images')
     if not os.path.exists(source_images_dir):
         # 尝试其他可能的路径
         source_images_dir = os.path.join(os.path.dirname(source_dir), 'zhihu_images')
-    
+
     if not os.path.exists(source_images_dir):
         print("  [!] 未找到图片目录，跳过图片同步")
         return 0
-    
+
     # 目标图片目录
-    obsidian_images_dir = os.path.join(vault_path, '知乎收藏', 'images')
+    obsidian_images_dir = os.path.join(vault_path, root_folder, 'images')
     os.makedirs(obsidian_images_dir, exist_ok=True)
     
     # 复制图片
@@ -272,13 +274,13 @@ def sync_images(source_dir, vault_path):
     return copied
 
 
-def write_to_obsidian(article_files, vault_path, source_dir):
+def write_to_obsidian(article_files, vault_path, source_dir, root_folder):
     """将文章写入 Obsidian Vault"""
-    zhihu_dir = os.path.join(vault_path, '知乎收藏')
+    zhihu_dir = os.path.join(vault_path, root_folder)
     os.makedirs(zhihu_dir, exist_ok=True)
 
     # 检测已有分类
-    existing = detect_existing_categories(vault_path)
+    existing = detect_existing_categories(vault_path, root_folder)
     print(f"\n已有知乎分类: {list(existing['zhihu'].keys()) or '无'}")
     print(f"Vault 一级目录: {list(existing['vault'].keys())[:10]}")
 
@@ -359,6 +361,13 @@ tags: [zhihu, {category}]
 
 
 def main():
+    root_folder_cli = None
+    if "--root-folder" in sys.argv:
+        i = sys.argv.index("--root-folder")
+        root_folder_cli = sys.argv[i + 1]
+        del sys.argv[i:i + 2]
+    root_folder = resolve_root_folder(root_folder_cli)
+
     if len(sys.argv) < 2:
         print("用法: python write_to_obsidian.py <文章目录> [Obsidian Vault 路径]")
         print("")
@@ -419,11 +428,11 @@ def main():
     print(f"目标 Vault: {vault_path}")
     print("=" * 60)
 
-    stats = write_to_obsidian(article_files, vault_path, source_dir)
-    
+    stats = write_to_obsidian(article_files, vault_path, source_dir, root_folder)
+
     # 同步图片
     print("\n同步图片...")
-    sync_images(source_dir, vault_path)
+    sync_images(source_dir, vault_path, root_folder)
 
     print("\n" + "=" * 60)
     print("写入完成！")
