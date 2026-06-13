@@ -1,8 +1,8 @@
 <div align="center">
 
-# 知乎抓取.skill
+# Zhihu Fetcher Skill
 
-> 从知乎**收藏夹列表**到**批量正文与图片**，再到 **Obsidian 自动分类入库**：API / Playwright 多级降级、Cookie 持久化与保活、断点续传。
+> From your **Zhihu collection list** to **bulk article bodies and images**, all the way to **automatic categorization into Obsidian**: multi-tier API / Playwright fallback, persistent Cookie context with keep-alive, and resume-from-checkpoint support.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -11,48 +11,48 @@
 
 <br>
 
-收藏夹里上千篇文章想**归档成 Markdown**？<br>
-需要**配图本地化**、中断后能**接着抓**？<br>
-希望落库到 Obsidian，并**按主题自动分类**？<br>
-Cookie 经常失效，想要**持久化上下文 + 保活**？
+Got thousands of saved articles you want to **archive as Markdown**?<br>
+Need **local image copies**, with the ability to **resume interrupted runs**?<br>
+Want to land everything in Obsidian and have it **auto-categorized by topic**?<br>
+Tired of Cookies expiring — want a **persistent context with keep-alive**?
 
-**本 Skill 按 AgentSkills 约定编排全流程，入口见根目录 [`SKILL.md`](SKILL.md)，脚本集中在 `scripts/`。**
+**This Skill orchestrates the full pipeline following the AgentSkills convention. The entry point is [`SKILL.md`](SKILL.md) at the repo root; all scripts live under `scripts/`.**
 
-[功能特性](#功能特性) · [安装](#安装) · [使用](#使用) · [项目结构](#项目结构) · [运行效果](#运行效果) · [参考文档](#参考文档)
+[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Project Structure](#project-structure) · [Screenshots](#screenshots) · [References](#references)
 
 </div>
 
 ---
 
-## 功能特性
+## Features
 
-| 能力 | 说明 |
-|------|------|
-| 收藏夹列表 | `fetch_zhihu_collection.py` 优先 API，失败降级 Playwright DOM；输出 JSON 列表 |
-| 个人历史列表 | `fetch_zhihu_history.py`：个人主页点赞/收藏动态，支持时间范围、断点续跑、互动时间元数据 |
-| 批量抓取 | `fetch_zhihu_batch.py`：正文 Markdown、图片默认写入 `{输出目录}/images/`、`_progress.json` 断点续传、失败自动重试、API 回退 |
-| 格式化 | `format_articles.py`：保守修复导出瑕疵（代码块恢复+语言推断、链接卡片/链接列表恢复、重定向解码、空行规范）；可选按 `interaction_time` 同步文件时间 |
-| Cookie | 持久化浏览器上下文 + 定时保活；失效时用 `zhihu_relogin.py` 手动登录 |
-| 单篇 / 调试 | `fetch_zhihu.py`、`fetch_zhihu_api.py`、`fetch_zhihu_stealth.py`、`fetch_zhihu_interactive.py` 等多路径 |
-| Obsidian | `write_to_obsidian.py`：Vault 检测、按内容与已有「知乎收藏」结构智能分类、同步图片；`write_zhihu_history_to_obsidian.py` 支持历史项 URL 去重导入 |
+| Capability | Description |
+|------------|-------------|
+| Collection list | `fetch_zhihu_collection.py` — tries the API first, falls back to Playwright DOM scraping on failure; outputs a JSON list |
+| Personal history list | `fetch_zhihu_history.py` — likes/saves from a user's profile page; supports date ranges, resume-from-checkpoint, and interaction-time metadata |
+| Bulk fetch | `fetch_zhihu_batch.py` — article body as Markdown, images written to `{output_dir}/images/` by default, `_progress.json` for checkpointing, automatic retry on failure, API fallback |
+| Formatting | `format_articles.py` — conservative cleanup of export artifacts (code-block recovery + language inference, link-card / link-list restoration, redirect decoding, blank-line normalization); optionally syncs file mtime to `interaction_time` |
+| Cookie | Persistent browser context + periodic keep-alive; use `zhihu_relogin.py` to re-authenticate when the session expires |
+| Single-article / debug | `fetch_zhihu.py`, `fetch_zhihu_api.py`, `fetch_zhihu_stealth.py`, `fetch_zhihu_interactive.py`, and other entry points |
+| Obsidian | `write_to_obsidian.py` — Vault detection, smart categorization against an existing "Zhihu Collection" structure, image sync; `write_zhihu_history_to_obsidian.py` supports URL-deduplicated import for history items |
 
-**依赖**：见 [`scripts/requirements.txt`](scripts/requirements.txt)，并需 `playwright install chromium`。
+**Dependencies**: see [`scripts/requirements.txt`](scripts/requirements.txt); also run `playwright install chromium`.
 
 ---
 
-## 安装
+## Installation
 
 ### Claude Code / Cursor
 
-将本仓库放到宿主约定的 skills 路径（与 [`SKILL.md`](SKILL.md) 同级为 skill 根目录），重启后在规则或技能列表中确认已加载。
+Place this repository at the skills path expected by your host (the directory containing [`SKILL.md`](SKILL.md) is the skill root). After restarting, confirm the skill appears in your rules or skill list.
 
 ```bash
-# 示例：克隆到项目的 skills 目录
+# Example: clone into the project's skills directory
 mkdir -p .cursor/skills
 git clone https://github.com/handsomestWei/zhihu-fetch-skill.git .cursor/skills/zhihu-fetch-skill
 ```
 
-### 依赖
+### Dependencies
 
 ```bash
 cd scripts
@@ -62,54 +62,56 @@ playwright install chromium
 
 ---
 
-## 使用
+## Usage
 
-在 Agent 中用自然语言描述即可，例如：知乎文章、收藏夹、批量抓取、写入 Obsidian、Cookie 失效。
+Describe what you want in plain language to the Agent — keywords like "Zhihu article", "collection", "bulk fetch", "write to Obsidian", or "Cookie expired" are enough to trigger the right flow.
 
-典型四步（路径请按本机 `{workspace}` 调整，详见 [`SKILL.md`](SKILL.md)）：
+Typical four-step pipeline (adjust `{workspace}` paths for your machine; see [`SKILL.md`](SKILL.md) for full details):
 
 ```bash
-# 1. 收藏夹 → JSON 列表
-python scripts/fetch_zhihu_collection.py <收藏夹URL或ID>
+# 1. Collection → JSON list
+python scripts/fetch_zhihu_collection.py <collection_url_or_id>
 
-# 2. 批量抓取正文与图片
-python scripts/fetch_zhihu_batch.py <列表.json>
+# 2. Bulk-fetch article bodies and images
+python scripts/fetch_zhihu_batch.py <list.json>
 
-# 3. 保守格式化（首次建议 --dry-run --diff 预览）
-python scripts/format_articles.py <文章目录>
+# 3. Conservative formatting (recommended: preview first with --dry-run --diff)
+python scripts/format_articles.py <articles_dir>
 
-# 4. 写入 Obsidian Vault（可选 Vault 路径）
-python scripts/write_to_obsidian.py <文章目录> [Vault路径]
+# 4. Write to Obsidian Vault (Vault path optional)
+python scripts/write_to_obsidian.py <articles_dir> [vault_path]
 ```
 
-个人历史（点赞 / 收藏）示例：
+Personal history (likes / saves) example:
 
 ```bash
-# 1. 个人动态 → JSON 列表（起始时间含，结束时间不含）
+# 1. User activity → JSON list (start inclusive, end exclusive)
 python scripts/fetch_zhihu_history.py \
   https://www.zhihu.com/people/<slug> \
   2026-01-01T00:00:00+01:00 \
   runtime/zhihu_history_2026-01-01_to_2026-04-05.json \
   --until 2026-04-05T00:00:00+02:00
 
-# 2. 批量抓取正文与图片（失败默认自动重试 3 次）
+# 2. Bulk-fetch article bodies and images (auto-retries up to 3 times on failure)
 python scripts/fetch_zhihu_batch.py \
   runtime/zhihu_history_2026-01-01_to_2026-04-05.json \
   runtime/zhihu_articles_history_2026-01-01_to_2026-04-05
 
-# 3. 保守格式化，并按 interaction_time 同步文件时间
+# 3. Conservative formatting; sync file mtime to interaction_time
 python scripts/format_articles.py \
   runtime/zhihu_articles_history_2026-01-01_to_2026-04-05 \
   --set-times
 
-# 4. 写入 Obsidian 的「知乎收藏/{分类}/」根分类文件夹，按 url 去重更新
+# 4. Write into Obsidian under "Zhihu Collection/{category}/", deduplicating by URL
 python scripts/write_zhihu_history_to_obsidian.py \
   runtime/zhihu_articles_history_2026-01-01_to_2026-04-05 \
   /path/to/ObsidianVault \
   .
 ```
 
-Cookie 异常时：
+The Obsidian root folder defaults to `Zhihu Collection` and the failures file to `fetch_failures.md`. Both are configurable via `--root-folder` / `--failures-name` flags or the `ZHIHU_OBSIDIAN_ROOT` / `ZHIHU_FAILURES_FILE` environment variables. To restore the original Chinese layout, set `ZHIHU_OBSIDIAN_ROOT=知乎收藏`.
+
+When the Cookie session is broken:
 
 ```bash
 python scripts/zhihu_relogin.py
@@ -117,17 +119,17 @@ python scripts/zhihu_relogin.py
 
 ---
 
-## 项目结构
+## Project Structure
 
-本仓库遵循 [AgentSkills](https://agentskills.io)，根目录即一个 skill：
+This repo follows the [AgentSkills](https://agentskills.io) convention — the root directory is itself a skill:
 
 ```
 zhihu-fetch-skill/
-├── SKILL.md                 # 技能入口：触发条件、命令与路径约定
-├── README.md                # 本说明
+├── SKILL.md                 # Skill entry point: triggers, commands, and path conventions
+├── README.md                # This file
 ├── LICENSE
 ├── .gitignore
-├── docs/                    # 文档配图（运行效果截图）
+├── docs/                    # Documentation images (screenshots)
 │   ├── openclaw-run.jpg
 │   └── obs.jpg
 └── scripts/
@@ -148,26 +150,26 @@ zhihu-fetch-skill/
     └── zhihu_relogin.py
 ```
 
-默认文章与图片目录等行为以 [`SKILL.md`](SKILL.md)「批量抓取详解」「文件路径」为准。
+Default output paths and other behavior are governed by the "Bulk Fetch Details" and "File Paths" sections in [`SKILL.md`](SKILL.md).
 
 ---
 
-## 运行效果
+## Screenshots
 
-**在 OpenClaw 对话中执行批量抓取**（工具输出中可见进度、剩余篇数、图片数量与 Cookie 保活提示）
+**Bulk fetch running inside an OpenClaw conversation** (tool output shows progress, remaining article count, image count, and Cookie keep-alive status)
 
-![OpenClaw 聊天：批量抓取进度与 Cookie 保活](./docs/openclaw-run.jpg)
+![OpenClaw chat: bulk fetch progress and Cookie keep-alive](./docs/openclaw-run.jpg)
 
-**写入 Obsidian 后的 Vault 结构**（「知乎收藏」下主题分类与关系图谱）
+**Vault structure after writing to Obsidian** ("Zhihu Collection" with topic sub-folders and graph view)
 
-![Obsidian：知乎收藏分类与关系图谱](./docs/obs.jpg)
+![Obsidian: Zhihu Collection categories and graph view](./docs/obs.jpg)
 
 ---
 
-## 参考文档
+## References
 
-- [技能入口与完整命令说明](SKILL.md)（依赖、脚本表、故障排查）
-- [脚本依赖清单](scripts/requirements.txt)
+- [Skill entry point and full command reference](SKILL.md) (dependencies, script table, troubleshooting)
+- [Script dependency list](scripts/requirements.txt)
 
 ---
 
