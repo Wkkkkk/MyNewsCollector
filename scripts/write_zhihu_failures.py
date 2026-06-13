@@ -11,6 +11,8 @@ import json
 import sys
 from pathlib import Path
 
+from zhihu_obsidian_config import resolve_root_folder, resolve_failures_name
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 
@@ -38,17 +40,26 @@ def escape_cell(value):
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("用法: python write_zhihu_failures.py <vault-path> <label>:<progress-json> [...]")
-        sys.exit(1)
+    import argparse
 
-    vault = Path(sys.argv[1]).expanduser().resolve()
-    zhihu_dir = vault / "知乎收藏"
+    parser = argparse.ArgumentParser(
+        description="Write a consolidated Obsidian note for failed Zhihu fetch items."
+    )
+    parser.add_argument("vault", help="Obsidian vault root path")
+    parser.add_argument("specs", nargs="+", help="<label>:<progress-json> pairs")
+    parser.add_argument("--root-folder", default=None,
+                        help="Obsidian root folder name (default: env ZHIHU_OBSIDIAN_ROOT or 'Zhihu Collection')")
+    parser.add_argument("--failures-name", default=None,
+                        help="Failure-list filename (default: env ZHIHU_FAILURES_FILE or 'fetch-failures.md')")
+    args = parser.parse_args()
+
+    vault = Path(args.vault).expanduser().resolve()
+    zhihu_dir = vault / resolve_root_folder(args.root_folder)
     zhihu_dir.mkdir(parents=True, exist_ok=True)
 
     rows = []
     seen = set()
-    for spec in sys.argv[2:]:
+    for spec in args.specs:
         if ":" not in spec:
             print(f"[!] skipping invalid spec: {spec}")
             continue
@@ -83,7 +94,7 @@ def main():
     else:
         lines.append("No failed items currently recorded.")
 
-    note = zhihu_dir / "抓取失败.md"
+    note = zhihu_dir / resolve_failures_name(args.failures_name)
     note.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"failed_items: {len(rows)}")
     print(f"wrote: {note}")
