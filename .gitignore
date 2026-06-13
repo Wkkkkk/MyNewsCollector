@@ -18,3 +18,6 @@ zhihu_articles_*/
 # OS
 .DS_Store
 Thumbs.db
+
+# 描述优化评估工作区
+eval-workspace/

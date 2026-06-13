@@ -66,15 +66,18 @@ MIT attribution (handsomestWei). Same Category-1/2 rules apply.
 Follow the skill's existing resolution precedence (**CLI flag > env var > default**, mirroring
 the current Vault resolution).
 
-| Knob | CLI flag | Env var | Default (unchanged) |
-|------|----------|---------|---------------------|
-| Obsidian root folder | `--root-folder` | `ZHIHU_OBSIDIAN_ROOT` | `知乎收藏` |
-| Failure-list filename | `--failures-name` | `ZHIHU_FAILURES_FILE` | `抓取失败.md` |
+| Knob | CLI flag | Env var | Default (NEW) | Previous |
+|------|----------|---------|---------------|----------|
+| Obsidian root folder | `--root-folder` | `ZHIHU_OBSIDIAN_ROOT` | `Zhihu Collection` | `知乎收藏` |
+| Failure-list filename | `--failures-name` | `ZHIHU_FAILURES_FILE` | `fetch-failures.md` | `抓取失败.md` |
 
 - Scripts touched: `write_to_obsidian.py`, `write_zhihu_history_to_obsidian.py`,
   `write_zhihu_failures.py`. No other scripts.
-- **Defaults stay Chinese** → backward-compatible; existing `知乎收藏/` vaults keep working.
-  English is one flag/env away.
+- **Defaults are now English** (`Zhihu Collection/`, `fetch-failures.md`). This is a
+  **breaking change** for users with existing `知乎收藏/` vaults: their old notes will not be
+  found/updated under the new default. Migration options, to be documented in
+  `references/paths.md`: either rename the existing folder, or keep the old name by setting
+  `ZHIHU_OBSIDIAN_ROOT=知乎收藏` (and `ZHIHU_FAILURES_FILE=抓取失败.md`).
 - Document the knobs in `references/paths.md`.
 - Note: this lifts the prior "scripts never modified, docs only" rule for these 3 files only,
   by deliberate user decision (configurability, not hardcoded rename).
@@ -104,9 +107,9 @@ what validates that the description triggers in both languages.
 ## Validation
 - **Triggering:** the eval loop is the test. Target: recall well above the current ~0% while
   holding precision high, in both languages.
-- **Configurability:** run a writer with `--root-folder "Zhihu Collection"` against the existing
-  `zhihu_test/` output into a temp vault; confirm the folder is created with the custom name and
-  the default run still produces `知乎收藏/`.
+- **Configurability:** run a writer against the existing `zhihu_test/` output into a temp vault
+  and confirm the default now produces `Zhihu Collection/`; then run with
+  `ZHIHU_OBSIDIAN_ROOT=知乎收藏` and confirm the old name still works (backward-compat escape hatch).
 - **Doc correctness:** grep that no Category-2 string, path, flag, or command was altered.
 
 ## Order of execution
