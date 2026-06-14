@@ -84,7 +84,11 @@ def main(argv=None) -> int:
         run_ingest(adapters, targets, force=args.force, dry_run=args.dry_run, **ctx)
         return 0
 
-    selected = select_sources([a.name for a in adapters], args.only, args.skip)
+    try:
+        selected = select_sources([a.name for a in adapters], args.only, args.skip)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
     run_scheduled(adapters, selected=selected, fresh=args.fresh, force=args.force,
                   dry_run=args.dry_run, **ctx)
     return 0
