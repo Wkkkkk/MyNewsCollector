@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from collections import defaultdict
+
 from news_collect.contract import SourceAdapter
 from news_collect.notify import summarize
+from news_collect.routing import route
 from news_collect.runlog import SourceOutcome, append_runlog
 from news_collect.state import load_state, save_state
 
@@ -45,5 +48,33 @@ def run_scheduled(adapters, *, selected, fresh, force, dry_run,
                 continue
             outcomes.append(_fetch_and_record(adapter, visible, state, workspace, now))
         except Exception as e:  # fault isolation: one bad source never aborts the run
+            outcomes.append(SourceOutcome(name, "error", 0, repr(e)))
+    return _finish(outcomes, runlog_path, now, notifier)
+
+
+def run_ingest(adapters, targets, *, force, dry_run,
+               workspace, vault, now, notifier, runlog_path):
+    by_name = {a.name: a for a in adapters}
+    grouped: dict[str, list[str]] = defaultdict(list)
+    outcomes: list[SourceOutcome] = []
+    for t in targets:
+        adapter = route(t, adapters)
+        if adapter is None:
+            outcomes.append(SourceOutcome("(none)", "error", 0, f"no adapter for {t}"))
+        else:
+            grouped[adapter.name].append(t)
+
+    for name, ts in grouped.items():
+        adapter = by_name[name]
+        state = load_state(workspace, name)
+        try:
+            items = adapter.refs_for(ts)
+            # The caller is the single owner of the seen-filter (see _fetch_and_record).
+            visible = items if force else [i for i in items if i.key not in state.seen]
+            if dry_run:
+                outcomes.append(SourceOutcome(name, "ok", len(visible), f"would fetch {len(visible)}"))
+                continue
+            outcomes.append(_fetch_and_record(adapter, visible, state, workspace, now))
+        except Exception as e:
             outcomes.append(SourceOutcome(name, "error", 0, repr(e)))
     return _finish(outcomes, runlog_path, now, notifier)
