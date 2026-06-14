@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 from news_collect.contract import SourceAdapter, ItemRef, FetchResult
@@ -18,6 +19,9 @@ class ZhihuAdapter(SourceAdapter):
         self.start = start
         self.vault = vault
         self.workspace = Path(workspace)
+        # `now` is accepted for a uniform adapter constructor signature; the underlying
+        # Zhihu scripts stamp their own timestamps (format_articles --set-times), so this
+        # adapter does not use it directly.
         self.now = now
         self.skill_dir = skill_dir
         self._runner = runner
@@ -40,7 +44,7 @@ class ZhihuAdapter(SourceAdapter):
         list_json = str(work / "history.json")
         articles_dir = str(work / "articles")
 
-        history = ["python", self._script("fetch_zhihu_history.py"),
+        history = [sys.executable, self._script("fetch_zhihu_history.py"),
                    self.profile, self.start, list_json]
         r = self._runner(history, cwd=self.skill_dir)
         if r.returncode == NEEDS_LOGIN_RC:
@@ -51,9 +55,9 @@ class ZhihuAdapter(SourceAdapter):
             return FetchResult(status="error", message="fetch_zhihu_history failed")
 
         for cmd in (
-            ["python", self._script("fetch_zhihu_batch.py"), list_json, articles_dir],
-            ["python", self._script("format_articles.py"), articles_dir, "--set-times"],
-            ["python", self._script("write_to_obsidian.py"), articles_dir, self.vault,
+            [sys.executable, self._script("fetch_zhihu_batch.py"), list_json, articles_dir],
+            [sys.executable, self._script("format_articles.py"), articles_dir, "--set-times"],
+            [sys.executable, self._script("write_to_obsidian.py"), articles_dir, self.vault,
              "--root-folder", "News/zhihu"],
         ):
             r = self._runner(cmd, cwd=self.skill_dir)
