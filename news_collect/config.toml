@@ -1,0 +1,20 @@
+# News Collect configuration.
+# vault: absolute path to the Obsidian vault. If omitted, OBSIDIAN_VAULT env var is used.
+vault = ""
+
+[sources.rss]
+enabled = true
+feeds = [
+    # "https://example.com/feed.xml",
+]
+
+[sources.zhihu]
+enabled = true
+profile = ""                               # https://www.zhihu.com/people/<slug>
+start = "2026-01-01T00:00:00+01:00"        # discovery lower bound on first run
+
+[sources.local]
+enabled = false
+paths = [
+    # "/Users/you/notes/clippings",
+]
