@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kunwu.news-collect</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__REPO__/venv/bin/python</string>
+        <string>-m</string>
+        <string>news_collect.collect</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONPATH</key>
+        <string>__REPO__</string>
+        <key>OPENCLAW_WORKSPACE</key>
+        <string>__WORKSPACE__</string>
+        <key>OBSIDIAN_VAULT</key>
+        <string>__VAULT__</string>
+        <key>CLAUDE_SKILL_DIR</key>
+        <string>__REPO__</string>
+    </dict>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>5</integer>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__WORKSPACE__/news-collect/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__WORKSPACE__/news-collect/logs/launchd.err.log</string>
+</dict>
+</plist>
