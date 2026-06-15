@@ -227,6 +227,51 @@ def parse_article_metadata(filepath):
     return meta
 
 
+def _fm_scalar(value):
+    """Render a value as a safe YAML frontmatter scalar (quote non-integers)."""
+    s = str(value)
+    if re.fullmatch(r'-?\d+', s):
+        return s
+    return '"' + s.replace('"', '\\"') + '"'
+
+
+# 抓取阶段记录、但需要在 Obsidian frontmatter 中保留的互动元数据。
+PRESERVED_META_KEYS = (
+    'interaction_action',   # 赞同了回答 / 收藏了文章 ...
+    'interaction_time',     # 互动时间 (ISO)
+    'liked_action',
+    'voteup',               # 赞同数
+    'activity_id',
+    'source_feed',
+)
+
+
+def build_preserved_frontmatter(meta):
+    """从抓取出的 meta 里挑出互动相关字段，生成 frontmatter 行（无则返回空串）。"""
+    lines = []
+    for key in PRESERVED_META_KEYS:
+        val = meta.get(key)
+        if val not in (None, ''):
+            lines.append(f'{key}: {_fm_scalar(val)}')
+    return ('\n' + '\n'.join(lines)) if lines else ''
+
+
+def strip_leading_title_block(body):
+    """去掉抓取脚本写入正文开头的标题/作者块，避免与本脚本生成的标题重复。
+
+    fetch_zhihu_batch 会在正文前加 `# 标题` 和 `> 作者: ... 原文: [知乎链接](...)`，
+    而本脚本会重新生成更完整的标题（含分类/原文链接），因此先剥掉正文里的旧标题块。
+    """
+    lines = body.lstrip('\n').split('\n')
+    if lines and lines[0].startswith('# '):
+        lines = lines[1:]
+        while lines and not lines[0].strip():
+            lines = lines[1:]
+        if lines and lines[0].lstrip().startswith('>') and '作者' in lines[0]:
+            lines = lines[1:]
+    return '\n'.join(lines).strip()
+
+
 def clean_content_for_obsidian(content):
     """清理内容使其适合 Obsidian"""
     # 更新图片路径：![](filename.jpg) -> ![](images/filename.jpg)
@@ -311,6 +356,14 @@ def write_to_obsidian(article_files, vault_path, source_dir, root_folder):
             cat_dir = os.path.join(zhihu_dir, category)
             os.makedirs(cat_dir, exist_ok=True)
 
+            # 保留抓取阶段记录的互动元数据（点赞/收藏动作、互动时间、赞同数等）
+            preserved_fm = build_preserved_frontmatter(meta)
+
+            # 可见标题下的互动摘要段（动作 + 日期），有则展示
+            action = meta.get('interaction_action', '')
+            when = (meta.get('interaction_time', '') or '')[:10]
+            interaction_seg = f"{action} {when} | " if action else ''
+
             # 生成 Obsidian 兼容的 Markdown
             obsidian_content = f"""---
 title: "{title}"
@@ -319,14 +372,14 @@ source: zhihu
 url: "{url}"
 category: "{category}"
 imported: {datetime.now().strftime('%Y-%m-%d')}
-tags: [zhihu, {category}]
+tags: [zhihu, {category}]{preserved_fm}
 ---
 
 # {title}
 
-> 作者: {author} | [原文链接]({url}) | 分类: {category}
+> {interaction_seg}作者: {author} | [原文链接]({url}) | 分类: {category}
 
-{clean_content_for_obsidian(body)}
+{clean_content_for_obsidian(strip_leading_title_block(body))}
 """
 
             # 文件名
