@@ -11,6 +11,10 @@ runtime/
 # 若在仓库根目录生成本地抓取目录（默认多在 ~/.openclaw/workspace/）
 zhihu_articles_*/
 
+# news_collect / 本地抓取输出目录
+runs/
+zhihu_test/
+
 # 临时与备份
 *.tmp
 ~$*
