@@ -15,6 +15,9 @@ zhihu_articles_*/
 runs/
 zhihu_test/
 
+# news_collect / 本地个人配置（含 vault 路径、feeds、知乎 profile）
+news_collect/config.local.toml
+
 # 临时与备份
 *.tmp
 ~$*

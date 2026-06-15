@@ -62,9 +62,22 @@ async def main():
         title = await page.title()
         print(f"当前页面: {title}")
         
-        # 等待用户登录
-        input("\n请在浏览器中完成登录，然后按回车键继续...")
-        
+        # 等待用户登录。
+        # 交互式终端：按回车继续。否则（如通过 Claude Code 的 ! 前缀运行，stdin 非 TTY）
+        # 改为轮询检测 z_c0 cookie，登录成功后自动保存。
+        if sys.stdin.isatty():
+            input("\n请在浏览器中完成登录，然后按回车键继续...")
+        else:
+            print("\n[非交互模式] 请在浏览器中完成登录，正在等待 z_c0 cookie（最多 5 分钟）...")
+            for _ in range(150):  # 150 * 2s = 5 分钟
+                names = {c['name'] for c in await context.cookies()}
+                if 'z_c0' in names:
+                    print("[OK] 已检测到登录，正在保存...")
+                    break
+                await page.wait_for_timeout(2000)
+            else:
+                print("[!] 超时未检测到 z_c0 cookie，仍尝试保存当前 cookie")
+
         # 获取所有 cookie
         cookies = await context.cookies()
         
