@@ -9,7 +9,7 @@ Usage:
   python fetch_zhihu_history.py <profile-url-or-slug> <cutoff-iso> [output-json] [--until <until-iso>]
 
 Example:
-  python fetch_zhihu_history.py duan-mu-yue-dao 2026-05-05T00:00:00+02:00
+  python fetch_zhihu_history.py <your-profile-slug> 2026-05-05T00:00:00+02:00
 """
 
 import asyncio
@@ -194,7 +194,7 @@ def save_checkpoint(
 async def main():
     if len(sys.argv) < 3:
         print("用法: python fetch_zhihu_history.py <profile-url-or-slug> <cutoff-iso> [output-json]")
-        print("示例: python fetch_zhihu_history.py duan-mu-yue-dao 2026-05-05T00:00:00+02:00")
+        print("示例: python fetch_zhihu_history.py <your-profile-slug> 2026-05-05T00:00:00+02:00")
         sys.exit(1)
 
     slug = parse_slug(sys.argv[1])
