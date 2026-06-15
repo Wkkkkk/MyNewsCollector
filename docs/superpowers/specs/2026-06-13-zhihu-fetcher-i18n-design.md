@@ -86,11 +86,11 @@ the current Vault resolution).
 After seeding the new description:
 ```bash
 cd /Users/kunwu/.claude/skills/skill-creator && python3 -m scripts.run_loop \
-  --eval-set /Users/kunwu/Workspace/playground/zhihu/eval-workspace/eval_set.json \
-  --skill-path /Users/kunwu/Workspace/playground/zhihu \
+  --eval-set /Users/kunwu/Workspace/playground/MyNewsCollector/eval-workspace/eval_set.json \
+  --skill-path /Users/kunwu/Workspace/playground/MyNewsCollector \
   --model "claude-sonnet-4-6" \
   --max-iterations 5 --verbose \
-  > /Users/kunwu/Workspace/playground/zhihu/eval-workspace/run_loop.log 2>&1
+  > /Users/kunwu/Workspace/playground/MyNewsCollector/eval-workspace/run_loop.log 2>&1
 ```
 - Back up the existing `run_loop.log` first.
 - Apply `best_description` to `SKILL.md` **only if it beats the seed**; report before/after

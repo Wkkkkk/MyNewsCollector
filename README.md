@@ -1,6 +1,8 @@
 <div align="center">
 
-# Zhihu Fetcher Skill
+# MyNewsCollector
+
+A personal news-collection workspace: a weekly multi-source collector (`news_collect/`) plus the **Zhihu Fetcher Skill** that powers its Zhihu source.
 
 > From your **Zhihu collection list** to **bulk article bodies and images**, all the way to **automatic categorization into Obsidian**: multi-tier API / Playwright fallback, persistent Cookie context with keep-alive, and resume-from-checkpoint support.
 
@@ -124,7 +126,7 @@ python scripts/zhihu_relogin.py
 This repo follows the [AgentSkills](https://agentskills.io) convention — the root directory is itself a skill:
 
 ```
-zhihu-fetch-skill/
+MyNewsCollector/
 ├── SKILL.md                 # Skill entry point: triggers, commands, and path conventions
 ├── README.md                # This file
 ├── LICENSE
