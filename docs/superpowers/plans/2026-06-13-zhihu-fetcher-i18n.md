@@ -194,7 +194,7 @@ note bodies. (If desired later, these are cosmetic.)
 
 Run:
 ```bash
-cd /Users/kunwu/Workspace/playground/zhihu
+cd /Users/kunwu/Workspace/playground/MyNewsCollector
 mkdir -p /tmp/zh-vault-test
 python scripts/write_zhihu_failures.py /tmp/zh-vault-test run:zhihu_test/articles/_progress.json
 ls "/tmp/zh-vault-test/Zhihu Collection/"
@@ -359,7 +359,7 @@ Then update the two call sites:
 
 Run:
 ```bash
-cd /Users/kunwu/Workspace/playground/zhihu
+cd /Users/kunwu/Workspace/playground/MyNewsCollector
 rm -rf /tmp/zh-vault-w2o && mkdir -p /tmp/zh-vault-w2o/.obsidian
 cp -r zhihu_test/articles /tmp/zh-src && \
 python scripts/write_to_obsidian.py /tmp/zh-src /tmp/zh-vault-w2o
@@ -585,7 +585,7 @@ git commit -m "test: add bilingual edge-case queries to trigger eval set"
 - [ ] **Step 1: Back up the prior run log**
 
 ```bash
-cd /Users/kunwu/Workspace/playground/zhihu
+cd /Users/kunwu/Workspace/playground/MyNewsCollector
 cp eval-workspace/run_loop.log eval-workspace/run_loop.prev.log 2>/dev/null || true
 ```
 
@@ -593,11 +593,11 @@ cp eval-workspace/run_loop.log eval-workspace/run_loop.prev.log 2>/dev/null || t
 
 ```bash
 cd /Users/kunwu/.claude/skills/skill-creator && python3 -m scripts.run_loop \
-  --eval-set /Users/kunwu/Workspace/playground/zhihu/eval-workspace/eval_set.json \
-  --skill-path /Users/kunwu/Workspace/playground/zhihu \
+  --eval-set /Users/kunwu/Workspace/playground/MyNewsCollector/eval-workspace/eval_set.json \
+  --skill-path /Users/kunwu/Workspace/playground/MyNewsCollector \
   --model "claude-sonnet-4-6" \
   --max-iterations 5 --verbose \
-  > /Users/kunwu/Workspace/playground/zhihu/eval-workspace/run_loop.log 2>&1
+  > /Users/kunwu/Workspace/playground/MyNewsCollector/eval-workspace/run_loop.log 2>&1
 ```
 
 - [ ] **Step 3: Read the result**
