@@ -366,11 +366,11 @@ def write_to_obsidian(article_files, vault_path, source_dir, root_folder):
 
             # 生成 Obsidian 兼容的 Markdown
             obsidian_content = f"""---
-title: "{title}"
-author: "{author}"
+title: {_fm_scalar(title)}
+author: {_fm_scalar(author)}
 source: zhihu
-url: "{url}"
-category: "{category}"
+url: {_fm_scalar(url)}
+category: {_fm_scalar(category)}
 imported: {datetime.now().strftime('%Y-%m-%d')}
 tags: [zhihu, {category}]{preserved_fm}
 ---

@@ -14,8 +14,14 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 
+import yaml
+
 from scripts.fetch_zhihu_batch import html_to_markdown
-from scripts.write_to_obsidian import strip_leading_title_block, build_preserved_frontmatter
+from scripts.write_to_obsidian import (
+    strip_leading_title_block,
+    build_preserved_frontmatter,
+    _fm_scalar,
+)
 
 
 TABLE_HTML = """
@@ -76,3 +82,15 @@ def test_preserved_frontmatter_keeps_interaction_metadata():
 
 def test_preserved_frontmatter_empty_when_no_interaction():
     assert build_preserved_frontmatter({"title": "x", "author": "y"}) == ""
+
+
+def test_fm_scalar_title_with_embedded_quotes_is_valid_yaml():
+    title = '如何看待由 OpenClaw 作者引发的 "Loop 工程" 讨论？'
+    fm = f"title: {_fm_scalar(title)}\n"
+    parsed = yaml.safe_load(fm)  # must not raise
+    assert parsed["title"] == title
+
+
+def test_fm_scalar_keeps_integers_unquoted():
+    assert _fm_scalar("524") == "524"
+    assert _fm_scalar(524) == "524"
