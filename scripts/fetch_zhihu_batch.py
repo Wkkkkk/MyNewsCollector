@@ -268,7 +268,28 @@ def html_to_markdown(html_content, images_dir=None):
     text = re.sub(r'<li[^>]*>(.*?)</li>', li_replace, text, flags=re.DOTALL)
     text = re.sub(r'<ul[^>]*>(.*?)</ul>', r'\1\n', text, flags=re.DOTALL)
     text = re.sub(r'<ol[^>]*>(.*?)</ol>', r'\1\n', text, flags=re.DOTALL)
-    
+
+    # 9.5 表格 -> Markdown 管道表格（在剥离标签之前，否则单元格会被拼成一行）
+    def table_replace(m):
+        rows_html = re.findall(r'<tr[^>]*>(.*?)</tr>', m.group(1), flags=re.DOTALL)
+        md_rows = []
+        for row in rows_html:
+            cells = re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', row, flags=re.DOTALL)
+            cleaned = []
+            for c in cells:
+                c = re.sub(r'<[^>]+>', '', c)          # 去掉残留标签（链接/加粗已先转成 Markdown）
+                c = html_lib.unescape(c)
+                c = c.replace('\n', ' ').replace('|', '\\|').strip()
+                cleaned.append(c)
+            if cleaned:
+                md_rows.append('| ' + ' | '.join(cleaned) + ' |')
+        if not md_rows:
+            return ''
+        ncol = md_rows[0].count('|') - 1
+        sep = '| ' + ' | '.join(['---'] * ncol) + ' |'
+        return '\n\n' + md_rows[0] + '\n' + sep + '\n' + '\n'.join(md_rows[1:]) + '\n\n'
+    text = re.sub(r'<table[^>]*>(.*?)</table>', table_replace, text, flags=re.DOTALL)
+
     # 10. 移除剩余 HTML（保留注释）
     # 先提取注释
     comments = re.findall(r'<!--.*?-->', text, re.DOTALL)

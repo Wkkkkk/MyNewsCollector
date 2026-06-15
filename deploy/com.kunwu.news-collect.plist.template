@@ -10,6 +10,8 @@
         <string>__REPO__/venv/bin/python</string>
         <string>-m</string>
         <string>news_collect.collect</string>
+        <string>--config</string>
+        <string>__CONFIG__</string>
     </array>
 
     <key>WorkingDirectory</key>
