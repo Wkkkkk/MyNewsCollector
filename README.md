@@ -156,18 +156,6 @@ Default output paths and other behavior are governed by the "Bulk Fetch Details"
 
 ---
 
-## Screenshots
-
-**Bulk fetch running inside an OpenClaw conversation** (tool output shows progress, remaining article count, image count, and Cookie keep-alive status)
-
-![OpenClaw chat: bulk fetch progress and Cookie keep-alive](./docs/openclaw-run.jpg)
-
-**Vault structure after writing to Obsidian** ("Zhihu Collection" with topic sub-folders and graph view)
-
-![Obsidian: Zhihu Collection categories and graph view](./docs/obs.jpg)
-
----
-
 ## References
 
 - [Skill entry point and full command reference](SKILL.md) (dependencies, script table, troubleshooting)
