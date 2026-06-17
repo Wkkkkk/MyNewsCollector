@@ -41,23 +41,33 @@ When Zhihu reports `needs_login`, the run-log and notification tell you to run
 `scripts/zhihu_relogin.py`, then re-run `-m news_collect.collect --only zhihu` — it resumes
 from checkpoint.
 
-## Weekly schedule (launchd, Friday 09:00 local)
+## Schedule (launchd, 09:00 local)
+
+Two jobs run on different cadences:
+
+- `com.kunwu.news-collect` — **Friday 09:00**, `--skip local` (rss + zhihu)
+- `com.kunwu.news-collect-local` — **every morning 09:00**, `--only local`
 
 ```bash
 REPO="$(pwd)"
 WORKSPACE="${OPENCLAW_WORKSPACE:-$HOME/.openclaw/workspace}"
 VAULT="/absolute/path/to/your/Obsidian/Vault"
+CONFIG="$REPO/news_collect/config.local.toml"
 mkdir -p "$WORKSPACE/news-collect/logs"
-sed -e "s#__REPO__#$REPO#g" -e "s#__WORKSPACE__#$WORKSPACE#g" -e "s#__VAULT__#$VAULT#g" \
-    deploy/com.kunwu.news-collect.plist.template \
-    > ~/Library/LaunchAgents/com.kunwu.news-collect.plist
-launchctl load ~/Library/LaunchAgents/com.kunwu.news-collect.plist
+for tmpl in com.kunwu.news-collect com.kunwu.news-collect-local; do
+  sed -e "s#__REPO__#$REPO#g" -e "s#__WORKSPACE__#$WORKSPACE#g" \
+      -e "s#__VAULT__#$VAULT#g" -e "s#__CONFIG__#$CONFIG#g" \
+      "deploy/$tmpl.plist.template" \
+      > "$HOME/Library/LaunchAgents/$tmpl.plist"
+  launchctl load "$HOME/Library/LaunchAgents/$tmpl.plist"
+done
 ```
 
 Manage:
 
 ```bash
-launchctl start com.kunwu.news-collect    # run now (manual smoke test)
+launchctl start com.kunwu.news-collect          # run weekly (rss+zhihu) now
+launchctl start com.kunwu.news-collect-local     # run daily (local) now
 launchctl unload ~/Library/LaunchAgents/com.kunwu.news-collect.plist   # disable
 ```
 
