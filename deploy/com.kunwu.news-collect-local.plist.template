@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.kunwu.news-collect</string>
+    <string>com.kunwu.news-collect-local</string>
 
     <key>ProgramArguments</key>
     <array>
@@ -12,7 +12,7 @@
         <string>news_collect.collect</string>
         <string>--config</string>
         <string>__CONFIG__</string>
-        <string>--skip</string>
+        <string>--only</string>
         <string>local</string>
     </array>
 
@@ -33,8 +33,6 @@
 
     <key>StartCalendarInterval</key>
     <dict>
-        <key>Weekday</key>
-        <integer>5</integer>
         <key>Hour</key>
         <integer>9</integer>
         <key>Minute</key>
