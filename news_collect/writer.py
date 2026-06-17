@@ -11,15 +11,16 @@ from news_collect.contract import NormalizedDoc
 
 
 def slugify(title: str) -> str:
-    """ASCII-friendly slug; falls back to a hash for non-ASCII-only titles."""
-    norm = unicodedata.normalize("NFKD", title or "")
-    ascii_only = norm.encode("ascii", "ignore").decode("ascii")
-    slug = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_only).strip("-").lower()
-    if slug:
-        return slug
-    if title.strip():
-        return "t-" + hashlib.sha256(title.encode("utf-8")).hexdigest()[:10]
-    return "untitled"
+    """Filesystem-friendly slug that preserves Unicode word characters (incl. CJK).
+
+    ASCII letters are lowercased; runs of non-word characters collapse to a single
+    hyphen. Full-width punctuation and forms normalize to their ASCII equivalents
+    first, so they drop out cleanly. Returns 'untitled' only when the title has no
+    word characters at all.
+    """
+    norm = unicodedata.normalize("NFKC", title or "")
+    slug = re.sub(r"[^\w]+", "-", norm, flags=re.UNICODE).strip("-").lower()
+    return slug[:80] if slug else "untitled"
 
 
 def _filename(doc: NormalizedDoc) -> str:
