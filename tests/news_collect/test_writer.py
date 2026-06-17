@@ -8,9 +8,19 @@ def test_slugify_basic():
     assert slugify("Hello, World! 2026") == "hello-world-2026"
 
 
+def test_slugify_preserves_cjk():
+    assert slugify("中文标题") == "中文标题"
+
+
+def test_slugify_mixed_cjk_latin_and_fullwidth_punctuation():
+    # full-width punctuation/parens normalize away; CJK + Latin words survive
+    assert slugify("讲透《Agentic patterns》系列（1/21）") == "讲透-agentic-patterns-系列-1-21"
+
+
 def test_slugify_handles_unicode_and_empty():
     assert slugify("中文标题") != ""
     assert slugify("") == "untitled"
+    assert slugify("！？。") == "untitled"  # punctuation-only → no word characters
 
 
 def test_write_doc_creates_file_with_frontmatter(tmp_path):
