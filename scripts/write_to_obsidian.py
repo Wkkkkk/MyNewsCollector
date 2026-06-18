@@ -474,8 +474,12 @@ def main():
             article_files.append(os.path.join(source_dir, f))
 
     if not article_files:
-        print("没有找到文章文件")
-        sys.exit(1)
+        # No new article bodies to write — e.g. every item in the batch was already
+        # fetched (resume checkpoint skipped them) and lives in the vault already.
+        # This is a clean no-op, not a failure: exit 0 so the orchestrator records
+        # "ok" and advances the source window instead of retrying the same stuck range.
+        print("没有新文章需要写入（全部已收录）")
+        sys.exit(0)
 
     print(f"\n找到 {len(article_files)} 篇文章")
     print(f"目标 Vault: {vault_path}")
