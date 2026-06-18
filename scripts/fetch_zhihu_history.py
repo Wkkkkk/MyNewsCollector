@@ -36,6 +36,38 @@ WORKSPACE = os.environ.get(
 LIKED_OR_COLLECTED_PREFIXES = ("赞同了", "喜欢了", "收藏了")
 TARGET_TYPES = {"answer", "article"}
 
+# Exit code signaling a dead session (mirrors news_collect.adapters.zhihu.NEEDS_LOGIN_RC).
+NEEDS_LOGIN_RC = 2
+# Generic failure (e.g. anti-bot rate-limit that backoff couldn't clear). The
+# orchestrator must NOT advise re-login for this.
+GENERIC_FAIL_RC = 1
+# Backoff schedule (seconds) for rate-limited activity-feed fetches.
+RATE_LIMIT_BACKOFFS = (5, 10, 20)
+
+
+def classify_api_failure(status, body_text):
+    """Classify a failed Zhihu activity-API response into LOGGED_OUT | RATE_LIMITED.
+
+    Unlike the batch fetcher's URL-based classify_access, the discovery stage sees
+    a JSON body. Zhihu's `error.redirect` points at /account/unhuman even when the
+    real cause is a dead session, so the authoritative signal is `error.need_login`
+    (or an explicit /signin redirect) — not the URL.
+
+    - "LOGGED_OUT"   need_login flag / signin redirect -> session dead -> re-login
+    - "RATE_LIMITED" anything else (anti-bot throttle, opaque failure) -> backoff
+    """
+    need_login = False
+    redirect = ""
+    try:
+        err = (json.loads(body_text) or {}).get("error") or {}
+        need_login = bool(err.get("need_login"))
+        redirect = err.get("redirect") or ""
+    except Exception:
+        pass
+    if need_login or "/signin" in redirect:
+        return "LOGGED_OUT"
+    return "RATE_LIMITED"
+
 
 def parse_slug(raw):
     raw = raw.strip()
@@ -296,6 +328,7 @@ async def main():
 
         active_fetch_done = False
         next_url = start_url
+        rate_limit_retries = 0
         for _ in range(300):
             if oldest_seen_ms and oldest_seen_ms < cutoff_ms:
                 break
@@ -310,8 +343,23 @@ async def main():
                 next_url,
             )
             if not payload.get("ok"):
-                print(f"[FAIL] activity fetch failed: HTTP {payload.get('status')} {payload.get('text', '')[:200]}")
-                sys.exit(2)
+                status = payload.get("status")
+                body = payload.get("text", "")
+                state = classify_api_failure(status, body)
+                if state == "LOGGED_OUT":
+                    print(f"[FAIL] 会话已失效（need_login），需要重新登录: HTTP {status} {body[:200]}")
+                    sys.exit(NEEDS_LOGIN_RC)
+                # RATE_LIMITED: 反爬限流，cookie 仍有效 -> 退避后重试同一页
+                if rate_limit_retries < len(RATE_LIMIT_BACKOFFS):
+                    wait_s = RATE_LIMIT_BACKOFFS[rate_limit_retries]
+                    rate_limit_retries += 1
+                    print(f"[!] 触发反爬限流（HTTP {status}），退避 {wait_s}s 后重试 "
+                          f"({rate_limit_retries}/{len(RATE_LIMIT_BACKOFFS)})...")
+                    await page.wait_for_timeout(wait_s * 1000)
+                    continue
+                print(f"[FAIL] 退避后仍被限流，放弃本次发现（非登录问题）: HTTP {status} {body[:200]}")
+                sys.exit(GENERIC_FAIL_RC)
+            rate_limit_retries = 0  # 成功后重置退避计数
             data = json.loads(payload["text"])
             seen_activity_urls.add(next_url)
             await process_payload(data)
