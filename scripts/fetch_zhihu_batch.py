@@ -67,6 +67,33 @@ def classify_access(page_url, exc=None):
     return "OK"
 
 
+def to_playwright_cookies(raw):
+    """Convert a saved cookie file dict (simple or extended format) into entries
+    for Playwright's add_cookies(), preserving expires/domain/path.
+
+    A real expiry must survive injection: passing no expires (or -1) makes
+    add_cookies() create a session cookie, which clobbers z_c0's real lifetime
+    and neuters the proactive TTL refresh. We therefore carry `expires` through
+    whenever it's a positive timestamp, and omit it otherwise (session cookie).
+    """
+    out = []
+    for name, v in (raw or {}).items():
+        if isinstance(v, dict):
+            entry = {
+                'name': name,
+                'value': v.get('value', ''),
+                'domain': v.get('domain') or '.zhihu.com',
+                'path': v.get('path') or '/',
+            }
+            exp = v.get('expires', -1)
+            if isinstance(exp, (int, float)) and exp > 0:
+                entry['expires'] = exp
+        else:
+            entry = {'name': name, 'value': v, 'domain': '.zhihu.com', 'path': '/'}
+        out.append(entry)
+    return out
+
+
 def get_default_paths():
     """获取默认路径"""
     workspace = os.environ.get('OPENCLAW_WORKSPACE',
@@ -537,27 +564,19 @@ async def main():
         
         page = context.pages[0] if context.pages else await context.new_page()
         
-        # 注入 cookie 文件到浏览器上下文（解决持久化上下文不自动加载的问题）
-        saved_cookies = load_cookies()
-        if saved_cookies:
-            cookie_list = []
-            for name, value in saved_cookies.items():
-                if isinstance(value, dict):
-                    # 扩展格式
-                    cookie_list.append({
-                        'name': name,
-                        'value': value.get('value', ''),
-                        'domain': value.get('domain', '.zhihu.com'),
-                        'path': value.get('path', '/'),
-                    })
-                else:
-                    # 简单格式
-                    cookie_list.append({
-                        'name': name,
-                        'value': value,
-                        'domain': '.zhihu.com',
-                        'path': '/',
-                    })
+        # 注入 cookie 文件到浏览器上下文（解决持久化上下文不自动加载的问题）。
+        # 读取原始文件（保留 expires），经 to_playwright_cookies 注入，避免把
+        # z_c0 的真实有效期覆盖成会话 cookie（否则 TTL 主动刷新形同虚设）。
+        raw_cookies = None
+        cookie_file = get_default_paths()['cookie_file']
+        if os.path.exists(cookie_file):
+            try:
+                with open(cookie_file, 'r', encoding='utf-8') as f:
+                    raw_cookies = json.load(f)
+            except Exception:
+                raw_cookies = None
+        cookie_list = to_playwright_cookies(raw_cookies)
+        if cookie_list:
             await context.add_cookies(cookie_list)
             print(f"已注入 {len(cookie_list)} 个 cookie 到浏览器")
         

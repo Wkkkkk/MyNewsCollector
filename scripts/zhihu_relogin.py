@@ -81,16 +81,23 @@ async def main():
         # 获取所有 cookie
         cookies = await context.cookies()
         
-        # 保存 cookie
+        # 保存 cookie（扩展格式，保留 expires/domain/path）。登录瞬间浏览器刚收到
+        # Zhihu 的 Set-Cookie，此时 expires 才是权威值；只存 value 会丢掉有效期，
+        # 导致后续注入把 z_c0 退化成会话 cookie、TTL 刷新失效。
         cookie_dict = {}
         for cookie in cookies:
-            cookie_dict[cookie['name']] = cookie['value']
-        
+            cookie_dict[cookie['name']] = {
+                'value': cookie['value'],
+                'expires': cookie.get('expires', -1),
+                'domain': cookie.get('domain', ''),
+                'path': cookie.get('path', '/'),
+            }
+
         with open(cookie_file, 'w', encoding='utf-8') as f:
             json.dump(cookie_dict, f, ensure_ascii=False, indent=2)
-        
+
         print(f"\n已保存 {len(cookies)} 个 cookie 到 {cookie_file}")
-        
+
         # 检查是否有 z_c0
         if 'z_c0' in cookie_dict:
             print("[OK] 检测到 z_c0 cookie，登录成功！")
