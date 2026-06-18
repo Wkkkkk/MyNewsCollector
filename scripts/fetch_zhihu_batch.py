@@ -34,12 +34,38 @@ Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} };
 """
 
+# Exit code signaling a dead session (mirrors news_collect.adapters.zhihu.NEEDS_LOGIN_RC).
+# Only LOGGED_OUT (/signin) raises this — a rate-limit trip (unhuman) does not.
+NEEDS_LOGIN_RC = 2
+
 COOKIE_KEEPALIVE_INTERVAL_MIN = 5   # 最小刷新间隔（更频繁）
 COOKIE_KEEPALIVE_INTERVAL_MAX = 8   # 最大刷新间隔
 COOKIE_EXPIRE_WARN_SECONDS = 1800   # z_c0 过期前30分钟开始警告
 MAX_RECOVERY_ATTEMPTS = 3           # Cookie失效最大恢复尝试次数
 CONSECUTIVE_FAIL_THRESHOLD = 5      # 连续失败阈值
 CONSECUTIVE_FAIL_INTERRUPT = True   # 连续失败是否中断
+
+def classify_access(page_url, exc=None):
+    """Classify a Zhihu navigation outcome into one of four states.
+
+    The redirect URL is Zhihu's only credential oracle, so this does not replace
+    redirect-detection — it stops the redirect signal from being over-interpreted.
+    Crucially it separates a rate-limit trip (cookie still valid) from a dead
+    session (must re-login), which the old binary check conflated.
+
+    - "OK"           normal page -> proceed
+    - "LOGGED_OUT"   /signin -> session dead -> re-login + abort (only re-login case)
+    - "RATE_LIMITED" /account/unhuman -> anti-bot trip, cookie valid -> backoff
+    - "NETWORK"      navigation raised -> indeterminate -> retry with backoff
+    """
+    if exc is not None:
+        return "NETWORK"
+    if '/signin' in page_url:
+        return "LOGGED_OUT"
+    if 'unhuman' in page_url:
+        return "RATE_LIMITED"
+    return "OK"
+
 
 def get_default_paths():
     """获取默认路径"""
@@ -570,7 +596,7 @@ async def main():
                     await page.wait_for_timeout(random.uniform(0.5, 1.5))
                 
                 # 检查是否被重定向到验证页面或登录页
-                if 'unhuman' not in page.url and '/signin' not in page.url:
+                if classify_access(page.url) == 'OK':
                     # 保存最新 cookie 到文件
                     await save_browser_cookies(context)
                     return True
@@ -608,7 +634,7 @@ async def main():
                     try:
                         await page.goto('https://www.zhihu.com', wait_until='domcontentloaded', timeout=15000)
                         await page.wait_for_timeout(2000)
-                        if 'unhuman' not in page.url and '/signin' not in page.url:
+                        if classify_access(page.url) == 'OK':
                             print(f"  [恢复] ✅ Cookie 已恢复！")
                             return True
                     except Exception:
@@ -628,15 +654,18 @@ async def main():
             print(f"  当前 URL: {current_url}")
             print(f"  当前标题: {current_title[:50]}")
             
-            if 'unhuman' in current_url or '/signin' in current_url:
-                print("[!] Cookie 已失效，尝试刷新...")
-                refreshed = await keepalive_cookie()
-                if not refreshed:
-                    print("[FAIL] 需要重新登录")
-                    print("运行: python zhihu_relogin.py")
-                    await context.close()
-                    return
-                print("[OK] Cookie 已刷新")
+            state = classify_access(current_url)
+            if state == 'LOGGED_OUT':
+                print("[FAIL] 会话已失效（/signin），需要重新登录")
+                print("运行: python zhihu_relogin.py")
+                await context.close()
+                return NEEDS_LOGIN_RC
+            elif state == 'RATE_LIMITED':
+                print("[!] 启动时触发反爬验证（unhuman），退避恢复中（无需重新登录）...")
+                if await check_and_recover_cookie():
+                    print("[OK] 限流已解除")
+                else:
+                    print("[!] 退避后仍被限流，继续逐篇处理（每篇会再退避）")
             else:
                 print("[OK] Cookie 有效")
         except Exception as e:
@@ -645,6 +674,7 @@ async def main():
         success = 0
         fail = 0
         skip = 0
+        needs_login = False             # 会话彻底失效（/signin），以 NEEDS_LOGIN_RC 退出
         consecutive_fails = 0           # 连续失败计数
         pending_failures = []           # 内存缓存的失败记录（未确定原因）
         next_keepalive = random.randint(COOKIE_KEEPALIVE_INTERVAL_MIN, COOKIE_KEEPALIVE_INTERVAL_MAX)
@@ -714,36 +744,37 @@ async def main():
                 await page.goto(url, wait_until='domcontentloaded', timeout=30000)
                 await page.wait_for_timeout(2000)
                 
-                # 检查是否被重定向到验证页面或登录页
-                if 'unhuman' in page.url or '/signin' in page.url:
-                    print(f"  [!] Cookie 失效，尝试自动恢复...")
-                    recovered = await check_and_recover_cookie()
-                    if recovered:
-                        print(f"  [OK] Cookie 已恢复，继续抓取")
-                        # 重新访问当前文章
+                # 分类访问结果：区分"会话失效"（需重新登录）与"反爬限流"（退避即可）
+                state = classify_access(page.url)
+                if state == 'LOGGED_OUT':
+                    print(f"  [FAIL] 会话已失效（/signin），需要重新登录")
+                    print(f"  运行: python zhihu_relogin.py")
+                    record_failure(url, 'logged_out', title, i+1)
+                    save_progress(progress_file, progress)
+                    needs_login = True
+                    break
+                if state == 'RATE_LIMITED':
+                    print(f"  [!] 触发反爬验证（unhuman），退避后重试（无需重新登录）...")
+                    if await check_and_recover_cookie():
                         await page.goto(url, wait_until='domcontentloaded', timeout=30000)
                         await page.wait_for_timeout(2000)
-                        if 'unhuman' in page.url or '/signin' in page.url:
-                            print(f"  [!] 恢复后仍无法访问，跳过")
-                            should_stop = record_failure(url, 'recovery_failed', title, i+1)
-                            fail += 1
-                            if should_stop:
-                                break
-                            continue
-                    else:
-                        print(f"  [FAIL] 自动恢复失败，需要手动登录")
+                        state = classify_access(page.url)
+                    if state == 'LOGGED_OUT':
+                        print(f"  [FAIL] 退避后检测到会话失效，需要重新登录")
                         print(f"  运行: python zhihu_relogin.py")
-                        record_failure(url, 'cookie_expired', title, i+1)
-                        # 保存当前进度后再退出
+                        record_failure(url, 'logged_out', title, i+1)
                         save_progress(progress_file, progress)
+                        needs_login = True
                         break
-                if 'unhuman' in page.url:
-                    should_stop = record_failure(url, 'safety_verification', title, i+1)
-                    fail += 1
-                    if should_stop:
-                        break
-                    continue
-                
+                    if state != 'OK':
+                        print(f"  [!] 退避后仍被限流，跳过该文章")
+                        should_stop = record_failure(url, 'rate_limited', title, i+1)
+                        fail += 1
+                        if should_stop:
+                            break
+                        continue
+                    print(f"  [OK] 限流已解除，继续抓取")
+
                 # 滚动页面加载所有内容
                 await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
                 await page.wait_for_timeout(1000)
@@ -881,6 +912,10 @@ images: {len(images)}
         print(f"已记录失败: {failed_count} 条（可用 --retry-failed 重试）")
     print("=" * 60)
 
+    if needs_login:
+        # 会话彻底失效：跳过自动重试（重试也会同样失败），向编排层发出需要登录的信号
+        return NEEDS_LOGIN_RC
+
     if auto_retry_max > 0 and not retry_failed:
         for attempt in range(1, auto_retry_max + 1):
             latest = load_progress(progress_file)
@@ -912,4 +947,4 @@ images: {len(images)}
             print("自动重试完成：没有剩余失败项")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()) or 0)

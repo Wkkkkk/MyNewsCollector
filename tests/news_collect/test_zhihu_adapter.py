@@ -73,6 +73,16 @@ def test_fetch_batch_failure_is_error(tmp_path):
     assert result.status == "error"
 
 
+def test_fetch_batch_security_check_is_needs_login(tmp_path):
+    runner = FakeRunner(rcs=[0, 2])  # history ok, batch hits dead session (/signin)
+    adapter = _adapter(runner, tmp_path)
+    result = adapter.fetch(adapter.discover(SourceState(), fresh=False))
+    assert result.status == "needs_login"
+    # pipeline must stop at the batch stage, before format/write
+    stages = [" ".join(c) for c in runner.calls]
+    assert not any("write_to_obsidian" in s for s in stages)
+
+
 def test_fetch_format_failure_is_error(tmp_path):
     runner = FakeRunner(rcs=[0, 0, 1])  # history+batch ok, format fails
     adapter = _adapter(runner, tmp_path)

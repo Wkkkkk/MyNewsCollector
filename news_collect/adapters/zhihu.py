@@ -61,6 +61,10 @@ class ZhihuAdapter(SourceAdapter):
              "--root-folder", "News/zhihu"],
         ):
             r = self._runner(cmd, cwd=self.skill_dir)
+            if r.returncode == NEEDS_LOGIN_RC:
+                return FetchResult(status="needs_login",
+                                   message="Zhihu session expired mid-fetch. "
+                                           "Run scripts/zhihu_relogin.py, then: collect.py --only zhihu")
             if r.returncode != 0:
                 return FetchResult(status="error", message=f"{cmd[1]} failed")
 
