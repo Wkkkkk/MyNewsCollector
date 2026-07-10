@@ -30,3 +30,28 @@ def test_build_adapters_constructs_enabled(tmp_path):
     adapters = build_adapters(cfg, workspace=tmp_path, now="t", skill_dir="/skill")
     names = {a.name for a in adapters}
     assert names == {"rss", "local"}  # zhihu disabled
+
+
+from news_collect.collect import _scheduled_exit_code
+from news_collect.runlog import SourceOutcome
+
+
+def _oc(status):
+    return SourceOutcome(source="s", status=status, count=0, message="")
+
+
+def test_exit_code_zero_when_all_ok():
+    assert _scheduled_exit_code([_oc("ok"), _oc("ok")]) == 0
+
+
+def test_exit_code_zero_when_partial_ok():
+    # fault isolation: one dead source must not fail the whole run
+    assert _scheduled_exit_code([_oc("ok"), _oc("error")]) == 0
+
+
+def test_exit_code_one_when_all_failed():
+    assert _scheduled_exit_code([_oc("error"), _oc("needs_login")]) == 1
+
+
+def test_exit_code_zero_when_no_outcomes():
+    assert _scheduled_exit_code([]) == 0

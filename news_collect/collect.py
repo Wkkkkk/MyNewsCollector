@@ -48,6 +48,15 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
 
+def _scheduled_exit_code(outcomes) -> int:
+    """Total-failure semantics: fail (1) only when nothing was produced —
+    no selected source returned "ok". Partial success is still success, so a
+    single dead source does not fail the whole run. Empty selection -> 0."""
+    if outcomes and all(o.status != "ok" for o in outcomes):
+        return 1
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="collect.py", description="Multi-source news collector")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -89,9 +98,9 @@ def main(argv=None) -> int:
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    run_scheduled(adapters, selected=selected, fresh=args.fresh, force=args.force,
-                  dry_run=args.dry_run, **ctx)
-    return 0
+    outcomes = run_scheduled(adapters, selected=selected, fresh=args.fresh,
+                             force=args.force, dry_run=args.dry_run, **ctx)
+    return _scheduled_exit_code(outcomes)
 
 
 if __name__ == "__main__":
