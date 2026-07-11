@@ -3,9 +3,11 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "scripts"))
 
-import zhihu_obsidian_config as cfg
+from scripts import zhihu_obsidian_config as cfg
 
 
 class ResolveRootFolder(unittest.TestCase):
