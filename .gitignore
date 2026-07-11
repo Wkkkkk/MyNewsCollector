@@ -28,3 +28,6 @@ Thumbs.db
 
 # 描述优化评估工作区
 eval-workspace/
+
+# 打包产物（构建生成，不入库）
+*.skill
