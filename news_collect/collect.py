@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
+import subprocess
 import sys
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,25 +85,46 @@ def main(argv=None) -> int:
 
     adapters = build_adapters(cfg, workspace=workspace, now=now, skill_dir=skill_dir)
     runlog_path = Path(cfg.vault) / "News" / "run-log.md"
-    notifier = MacNotifier()
+    # Clicking the notification opens the News run-log note in Obsidian, landing in
+    # the News folder alongside the freshly-collected notes.
+    news_url = "obsidian://open?path=" + urllib.parse.quote(str(runlog_path))
+    notifier = MacNotifier(open_url=news_url)
     ctx = dict(workspace=workspace, vault=cfg.vault, now=now,
                notifier=notifier, runlog_path=runlog_path)
 
-    if args.cmd == "ingest":
-        targets = list(args.targets)
-        if args.from_file:
-            targets += [ln.strip() for ln in Path(args.from_file).read_text().splitlines() if ln.strip()]
-        run_ingest(adapters, targets, force=args.force, dry_run=args.dry_run, **ctx)
-        return 0
+    def _notify_crash(exc):
+        # A hard crash (not a handled per-source failure) never reaches the normal
+        # notification, so fire one here pointing at the launchd error log.
+        err_log = Path(workspace) / "news-collect" / "logs" / "launchd.err.log"
+        try:
+            subprocess.run(["/usr/local/bin/terminal-notifier",
+                            "-title", "📰 News collect — CRASHED",
+                            "-message", f"{type(exc).__name__}: {str(exc)[:150]} — click for the error log",
+                            "-group", "news-collect",
+                            "-execute", f"open {shlex.quote(str(err_log))}"],
+                           check=False)
+        except FileNotFoundError:
+            pass  # terminal-notifier absent — non-fatal
 
     try:
-        selected = select_sources([a.name for a in adapters], args.only, args.skip)
-    except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    outcomes = run_scheduled(adapters, selected=selected, fresh=args.fresh,
-                             force=args.force, dry_run=args.dry_run, **ctx)
-    return _scheduled_exit_code(outcomes)
+        if args.cmd == "ingest":
+            targets = list(args.targets)
+            if args.from_file:
+                targets += [ln.strip() for ln in Path(args.from_file).read_text().splitlines() if ln.strip()]
+            run_ingest(adapters, targets, force=args.force, dry_run=args.dry_run, **ctx)
+            return 0
+
+        try:
+            selected = select_sources([a.name for a in adapters], args.only, args.skip)
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 2
+        outcomes = run_scheduled(adapters, selected=selected, fresh=args.fresh,
+                                 force=args.force, dry_run=args.dry_run, **ctx)
+        return _scheduled_exit_code(outcomes)
+    except Exception as exc:  # hard crash: still fire a clickable failure alert
+        _notify_crash(exc)
+        raise
 
 
 if __name__ == "__main__":

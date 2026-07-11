@@ -21,4 +21,16 @@ def test_mac_notifier_invokes_runner():
     notifier = MacNotifier(runner=lambda args, **kw: calls.append(args))
     notifier.notify("Title", "Body")
     assert calls, "runner was not called"
-    assert "osascript" in calls[0][0]
+    assert "terminal-notifier" in calls[0][0]
+    assert "Title" in calls[0] and "Body" in calls[0]
+
+
+def test_mac_notifier_click_opens_target():
+    calls = []
+    notifier = MacNotifier(open_url="obsidian://open?path=/v/News/run-log.md",
+                           runner=lambda args, **kw: calls.append(args))
+    notifier.notify("T", "B")
+    argv = calls[0]
+    assert "-execute" in argv
+    assert argv[argv.index("-execute") + 1].startswith("open ")
+    assert "run-log.md" in argv[argv.index("-execute") + 1]

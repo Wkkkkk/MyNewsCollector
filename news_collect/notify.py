@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import shlex
 import subprocess
 
 from news_collect.runlog import SourceOutcome
+
+TERMINAL_NOTIFIER = "/usr/local/bin/terminal-notifier"
 
 
 def summarize(outcomes: list[SourceOutcome]) -> tuple[str, str]:
@@ -16,16 +19,21 @@ def summarize(outcomes: list[SourceOutcome]) -> tuple[str, str]:
 
 
 class MacNotifier:
-    """Fires a macOS notification via osascript. `runner` is injectable for tests."""
-    def __init__(self, runner=subprocess.run):
+    """Fires a clickable macOS notification via terminal-notifier. Clicking opens
+    `open_url` (a file path, file:// URL, or obsidian:// URL) — used to jump to the
+    freshly-collected notes. `runner` is injectable for tests."""
+    def __init__(self, open_url: str | None = None, runner=subprocess.run):
+        self._open_url = open_url
         self._runner = runner
 
     def notify(self, title: str, message: str) -> None:
-        # escape double quotes for AppleScript string literals
-        t = title.replace('"', '\\"')
-        m = message.replace('"', '\\"')
-        script = f'display notification "{m}" with title "{t}"'
+        # terminal-notifier takes title/message as argv, so no AppleScript string
+        # escaping is needed. A click runs `open <url>` when open_url is set.
+        cmd = [TERMINAL_NOTIFIER, "-title", title, "-message", message,
+               "-group", "news-collect"]
+        if self._open_url:
+            cmd += ["-execute", f"open {shlex.quote(self._open_url)}"]
         try:
-            self._runner(["osascript", "-e", script], check=False)
+            self._runner(cmd, check=False)
         except FileNotFoundError:
-            pass  # not on macOS / osascript unavailable — non-fatal
+            pass  # terminal-notifier not installed — non-fatal
