@@ -18,6 +18,15 @@ def summarize(outcomes: list[SourceOutcome]) -> tuple[str, str]:
     return ("News collect", f"{total_new} new — {needs}")
 
 
+def should_notify(outcomes: list[SourceOutcome]) -> bool:
+    """Notify only when there is something to say: new items were produced, or
+    at least one source had a problem. A clean run that produced 0 new items is
+    silent (the caller exits 44 — see collect._scheduled_exit_code)."""
+    total_new = sum(o.count for o in outcomes if o.status == "ok")
+    problems = any(o.status != "ok" for o in outcomes)
+    return total_new > 0 or problems
+
+
 class MacNotifier:
     """Fires a clickable macOS notification via terminal-notifier. Clicking opens
     `open_url` (a file path, file:// URL, or obsidian:// URL) — used to jump to the

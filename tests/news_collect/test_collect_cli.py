@@ -36,12 +36,12 @@ from news_collect.collect import _scheduled_exit_code
 from news_collect.runlog import SourceOutcome
 
 
-def _oc(status):
-    return SourceOutcome(source="s", status=status, count=0, message="")
+def _oc(status="ok", count=0):
+    return SourceOutcome(source="s", status=status, count=count, message="")
 
 
-def test_exit_code_zero_when_all_ok():
-    assert _scheduled_exit_code([_oc("ok"), _oc("ok")]) == 0
+def test_exit_code_zero_when_all_ok_with_new():
+    assert _scheduled_exit_code([_oc("ok", 2), _oc("ok", 1)]) == 0
 
 
 def test_exit_code_zero_when_partial_ok():
@@ -55,3 +55,11 @@ def test_exit_code_one_when_all_failed():
 
 def test_exit_code_zero_when_no_outcomes():
     assert _scheduled_exit_code([]) == 0
+
+
+def test_exit_code_44_when_all_ok_and_zero_new():
+    assert _scheduled_exit_code([_oc("ok", 0), _oc("ok", 0)]) == 44
+
+
+def test_exit_code_zero_when_problem_present_even_zero_new():
+    assert _scheduled_exit_code([_oc("ok", 0), _oc("error", 0)]) == 0

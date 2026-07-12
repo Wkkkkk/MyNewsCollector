@@ -17,6 +17,7 @@ from news_collect.notify import MacNotifier
 from news_collect.orchestrator import run_scheduled, run_ingest
 
 DEFAULT_CONFIG = Path(__file__).with_name("config.toml")
+EX_NOTHING_NEW = 44  # ran OK but produced nothing new (shared launchd-catchup contract)
 
 
 def select_sources(enabled: list[str], only: str | None, skip: str | None) -> list[str]:
@@ -52,11 +53,19 @@ def _now_iso() -> str:
 
 
 def _scheduled_exit_code(outcomes) -> int:
-    """Total-failure semantics: fail (1) only when nothing was produced —
-    no selected source returned "ok". Partial success is still success, so a
-    single dead source does not fail the whole run. Empty selection -> 0."""
-    if outcomes and all(o.status != "ok" for o in outcomes):
+    """Tri-state per the launchd-catchup job contract:
+      1  — total failure: every selected source failed (nothing produced).
+      44 — ran OK but nothing new: all sources ok and 0 new items.
+      0  — produced new output (or partial success with a problem present).
+    Empty selection -> 0."""
+    if not outcomes:
+        return 0
+    if all(o.status != "ok" for o in outcomes):
         return 1
+    problems = any(o.status != "ok" for o in outcomes)
+    total_new = sum(o.count for o in outcomes if o.status == "ok")
+    if not problems and total_new == 0:
+        return EX_NOTHING_NEW
     return 0
 
 

@@ -1,4 +1,4 @@
-from news_collect.notify import summarize, MacNotifier
+from news_collect.notify import summarize, should_notify, MacNotifier
 from news_collect.runlog import SourceOutcome
 
 
@@ -34,3 +34,17 @@ def test_mac_notifier_click_opens_target():
     assert "-execute" in argv
     assert argv[argv.index("-execute") + 1].startswith("open ")
     assert "run-log.md" in argv[argv.index("-execute") + 1]
+
+
+def test_should_notify_false_on_empty_clean_run():
+    assert should_notify([SourceOutcome("rss", "ok", 0, ""),
+                          SourceOutcome("local", "ok", 0, "")]) is False
+
+
+def test_should_notify_true_when_new_items():
+    assert should_notify([SourceOutcome("rss", "ok", 3, "")]) is True
+
+
+def test_should_notify_true_on_problem_even_with_zero_new():
+    assert should_notify([SourceOutcome("rss", "ok", 0, ""),
+                          SourceOutcome("zhihu", "needs_login", 0, "x")]) is True

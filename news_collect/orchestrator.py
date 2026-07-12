@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from news_collect.contract import SourceAdapter
-from news_collect.notify import summarize
+from news_collect.notify import summarize, should_notify
 from news_collect.routing import route
 from news_collect.runlog import SourceOutcome, append_runlog
 from news_collect.state import load_state, save_state
@@ -26,8 +26,9 @@ def _fetch_and_record(adapter, items, state, workspace, now):
 
 def _finish(outcomes, runlog_path, now, notifier):
     append_runlog(runlog_path, outcomes, now)
-    title, message = summarize(outcomes)
-    notifier.notify(title, message)
+    if should_notify(outcomes):
+        title, message = summarize(outcomes)
+        notifier.notify(title, message)
     return outcomes
 
 
