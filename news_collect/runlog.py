@@ -14,6 +14,15 @@ class SourceOutcome:
     message: str
 
 
+def outcome_stats(outcomes: list[SourceOutcome]) -> tuple[int, bool]:
+    """Interpret a run's outcomes: (total_new, has_problems).
+    total_new = items produced by sources that succeeded;
+    has_problems = at least one selected source did not return "ok"."""
+    total_new = sum(o.count for o in outcomes if o.status == "ok")
+    has_problems = any(o.status != "ok" for o in outcomes)
+    return total_new, has_problems
+
+
 def _entry(outcomes: list[SourceOutcome], now: str) -> str:
     lines = [f"## {now}\n", "| Source | Status | New | Detail |", "|---|---|---|---|"]
     for o in outcomes:

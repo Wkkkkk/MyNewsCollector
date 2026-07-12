@@ -1,4 +1,21 @@
-from news_collect.runlog import SourceOutcome, append_runlog
+from news_collect.runlog import SourceOutcome, append_runlog, outcome_stats
+
+
+def test_outcome_stats_all_ok_sums_counts():
+    outcomes = [SourceOutcome("rss", "ok", 3, ""), SourceOutcome("zhihu", "ok", 2, "")]
+    assert outcome_stats(outcomes) == (5, False)
+
+
+def test_outcome_stats_mixed_reports_problems_and_ok_only_sum():
+    outcomes = [
+        SourceOutcome("rss", "ok", 3, ""),
+        SourceOutcome("zhihu", "needs_login", 0, "cookie expired"),
+    ]
+    assert outcome_stats(outcomes) == (3, True)
+
+
+def test_outcome_stats_empty_list():
+    assert outcome_stats([]) == (0, False)
 
 
 def test_append_creates_file_with_entry(tmp_path):

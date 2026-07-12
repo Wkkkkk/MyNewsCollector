@@ -3,7 +3,7 @@ from __future__ import annotations
 import shlex
 import subprocess
 
-from news_collect.runlog import SourceOutcome
+from news_collect.runlog import SourceOutcome, outcome_stats
 
 TERMINAL_NOTIFIER = "/usr/local/bin/terminal-notifier"
 
@@ -22,8 +22,7 @@ def should_notify(outcomes: list[SourceOutcome]) -> bool:
     """Notify only when there is something to say: new items were produced, or
     at least one source had a problem. A clean run that produced 0 new items is
     silent (the caller exits 44 — see collect._scheduled_exit_code)."""
-    total_new = sum(o.count for o in outcomes if o.status == "ok")
-    problems = any(o.status != "ok" for o in outcomes)
+    total_new, problems = outcome_stats(outcomes)
     return total_new > 0 or problems
 
 

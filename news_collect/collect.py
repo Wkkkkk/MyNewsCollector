@@ -15,6 +15,7 @@ from news_collect.adapters.zhihu import ZhihuAdapter
 from news_collect.config import load_config, Config
 from news_collect.notify import MacNotifier
 from news_collect.orchestrator import run_scheduled, run_ingest
+from news_collect.runlog import outcome_stats
 
 DEFAULT_CONFIG = Path(__file__).with_name("config.toml")
 EX_NOTHING_NEW = 44  # ran OK but produced nothing new (shared launchd-catchup contract)
@@ -62,8 +63,7 @@ def _scheduled_exit_code(outcomes) -> int:
         return 0
     if all(o.status != "ok" for o in outcomes):
         return 1
-    problems = any(o.status != "ok" for o in outcomes)
-    total_new = sum(o.count for o in outcomes if o.status == "ok")
+    total_new, problems = outcome_stats(outcomes)
     if not problems and total_new == 0:
         return EX_NOTHING_NEW
     return 0
