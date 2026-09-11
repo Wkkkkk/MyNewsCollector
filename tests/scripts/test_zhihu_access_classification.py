@@ -16,7 +16,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
 
 from scripts.fetch_zhihu_batch import classify_access
-from scripts.fetch_zhihu_history import classify_api_failure
+from scripts.fetch_zhihu_history import classify_api_failure, classify_eval_failure
 
 
 def test_normal_url_is_ok():
@@ -71,3 +71,36 @@ def test_unparseable_body_defaults_to_rate_limited():
     # Crying "re-login" on an opaque failure is worse than backing off, so the
     # safe default is RATE_LIMITED (backoff, then a generic error if persistent).
     assert classify_api_failure(403, "<html>gateway timeout</html>") == "RATE_LIMITED"
+
+
+# --- history-stage evaluate() crash classifier -------------------------------
+# Zhihu can navigate the page out from under the in-page fetch(), destroying the
+# JS execution context. Playwright then RAISES, so classify_api_failure() never
+# sees a body. The post-mortem signal is where the page ended up parked.
+
+def test_eval_crash_on_signin_is_logged_out():
+    assert classify_eval_failure(
+        "https://www.zhihu.com/signin?next=%2F",
+        RuntimeError("Execution context was destroyed"),
+    ) == "LOGGED_OUT"
+
+
+def test_eval_crash_on_unhuman_is_rate_limited():
+    assert classify_eval_failure(
+        "https://www.zhihu.com/account/unhuman?type=S6E3V1",
+        RuntimeError("Execution context was destroyed"),
+    ) == "RATE_LIMITED"
+
+
+def test_eval_crash_on_normal_url_is_rate_limited():
+    # An opaque navigation (or a plain timeout) must back off, never advise
+    # re-login — same safe default as classify_api_failure.
+    assert classify_eval_failure(
+        "https://www.zhihu.com/people/someone",
+        TimeoutError("evaluate timeout"),
+    ) == "RATE_LIMITED"
+
+
+def test_eval_crash_with_unreadable_url_is_rate_limited():
+    # page.url can itself be unavailable once the target is closed.
+    assert classify_eval_failure(None, RuntimeError("Target page closed")) == "RATE_LIMITED"

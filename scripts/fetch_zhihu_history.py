@@ -69,6 +69,25 @@ def classify_api_failure(status, body_text):
     return "RATE_LIMITED"
 
 
+def classify_eval_failure(page_url, exc):
+    """Classify a page.evaluate() that RAISED instead of returning a payload.
+
+    Zhihu can navigate the page out from under the in-page fetch() (anti-bot
+    redirect, or a session killed mid-run), which destroys the JS execution
+    context and makes Playwright raise. classify_api_failure() never gets a body
+    in that case, so the post-mortem signal is where the page ended up parked.
+
+    - "LOGGED_OUT"   parked on /signin -> session dead -> re-login
+    - "RATE_LIMITED" anything else (unhuman, opaque nav, plain timeout) -> backoff
+
+    Same safe default as classify_api_failure: crying "re-login" on an opaque
+    failure is worse than backing off.
+    """
+    if "/signin" in (page_url or ""):
+        return "LOGGED_OUT"
+    return "RATE_LIMITED"
+
+
 def parse_slug(raw):
     raw = raw.strip()
     if raw.startswith("http://") or raw.startswith("https://"):
@@ -329,19 +348,58 @@ async def main():
         active_fetch_done = False
         next_url = start_url
         rate_limit_retries = 0
+
+        async def backoff_or_give_up(reason, detail):
+            """Wait out the next backoff step, or exit GENERIC_FAIL_RC when the
+            schedule is exhausted. Shared by both non-login failure paths: an
+            API response that came back not-ok, and an evaluate() that raised.
+            """
+            nonlocal rate_limit_retries
+            if rate_limit_retries >= len(RATE_LIMIT_BACKOFFS):
+                print(f"[FAIL] 退避后仍失败，放弃本次发现（非登录问题）: {detail}")
+                sys.exit(GENERIC_FAIL_RC)
+            wait_s = RATE_LIMIT_BACKOFFS[rate_limit_retries]
+            rate_limit_retries += 1
+            print(f"[!] {reason}，退避 {wait_s}s 后重试 "
+                  f"({rate_limit_retries}/{len(RATE_LIMIT_BACKOFFS)})...")
+            # asyncio.sleep, not page.wait_for_timeout: the page may already be
+            # dead (TargetClosedError), and the waiter must not need it alive.
+            await asyncio.sleep(wait_s)
+
         for _ in range(300):
             if oldest_seen_ms and oldest_seen_ms < cutoff_ms:
                 break
             if next_url in seen_activity_urls:
                 break
-            payload = await page.evaluate(
-                """async (url) => {
-                    const response = await fetch(url, {credentials: 'include'});
-                    const text = await response.text();
-                    return {ok: response.ok, status: response.status, text};
-                }""",
-                next_url,
-            )
+            try:
+                payload = await page.evaluate(
+                    """async (url) => {
+                        const response = await fetch(url, {credentials: 'include'});
+                        const text = await response.text();
+                        return {ok: response.ok, status: response.status, text};
+                    }""",
+                    next_url,
+                )
+            except Exception as exc:
+                # The page was navigated out from under the in-page fetch (or the
+                # target closed), so there is no body to classify — go by where
+                # the page landed. Without this the script died with a traceback,
+                # skipping both the backoff below and the re-login signal.
+                try:
+                    landed = page.url
+                except Exception:
+                    landed = None
+                if classify_eval_failure(landed, exc) == "LOGGED_OUT":
+                    print(f"[FAIL] 会话已失效（页面跳转至 signin），需要重新登录: {exc}")
+                    sys.exit(NEEDS_LOGIN_RC)
+                await backoff_or_give_up(f"取数途中页面被导航（{type(exc).__name__}）", exc)
+                # The execution context is gone; put the page back on the profile
+                # before retrying the same feed page.
+                try:
+                    await page.goto(profile_url, wait_until="domcontentloaded", timeout=30000)
+                except Exception as nav_exc:
+                    print(f"[!] 重新导航到主页失败，继续重试: {nav_exc}")
+                continue
             if not payload.get("ok"):
                 status = payload.get("status")
                 body = payload.get("text", "")
@@ -350,15 +408,9 @@ async def main():
                     print(f"[FAIL] 会话已失效（need_login），需要重新登录: HTTP {status} {body[:200]}")
                     sys.exit(NEEDS_LOGIN_RC)
                 # RATE_LIMITED: 反爬限流，cookie 仍有效 -> 退避后重试同一页
-                if rate_limit_retries < len(RATE_LIMIT_BACKOFFS):
-                    wait_s = RATE_LIMIT_BACKOFFS[rate_limit_retries]
-                    rate_limit_retries += 1
-                    print(f"[!] 触发反爬限流（HTTP {status}），退避 {wait_s}s 后重试 "
-                          f"({rate_limit_retries}/{len(RATE_LIMIT_BACKOFFS)})...")
-                    await page.wait_for_timeout(wait_s * 1000)
-                    continue
-                print(f"[FAIL] 退避后仍被限流，放弃本次发现（非登录问题）: HTTP {status} {body[:200]}")
-                sys.exit(GENERIC_FAIL_RC)
+                await backoff_or_give_up(f"触发反爬限流（HTTP {status}）",
+                                         f"HTTP {status} {body[:200]}")
+                continue
             rate_limit_retries = 0  # 成功后重置退避计数
             data = json.loads(payload["text"])
             seen_activity_urls.add(next_url)
