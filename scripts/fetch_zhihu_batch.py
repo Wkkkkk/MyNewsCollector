@@ -404,6 +404,42 @@ def extra_frontmatter(item):
             lines.append(f"{key}: {yaml_scalar(item.get(key))}")
     return '\n'.join(lines)
 
+def write_item_markdown(output_dir, i, final_title, item, fallback_author,
+                        markdown, images, image_sources):
+    """Write one fetched item as `NNNN_title.md` (+ optional image-sources file)."""
+    safe_title = re.sub(r'[\\/:*?"<>|]', '_', final_title)[:80]
+    filename = f"{i+1:04d}_{safe_title}.md"
+    filepath = os.path.join(output_dir, filename)
+
+    url = item.get('url', '')
+    author = item.get('author', '') or fallback_author
+    voteup = item.get('voteup', 0)
+
+    output = f"""---
+title: "{final_title}"
+author: "{author}"
+source: zhihu
+url: "{url}"
+voteup: {voteup}
+images: {len(images)}
+{extra_frontmatter(item)}
+---
+
+# {final_title}
+
+> 作者: {author} | 原文: [知乎链接]({url})
+
+{markdown}
+"""
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(output)
+
+    if image_sources:
+        sources_file = os.path.join(output_dir, f"{i+1:04d}_{safe_title}_sources.txt")
+        with open(sources_file, 'w', encoding='utf-8') as f:
+            for local, original in image_sources.items():
+                f.write(f'{local} -> {original}\n')
+
 def add_failure(progress, progress_file, url, reason, title='', index=0):
     """记录失败项到进度文件"""
     import time
@@ -758,6 +794,18 @@ async def main():
                 next_keepalive = success + fail + random.randint(COOKIE_KEEPALIVE_INTERVAL_MIN, COOKIE_KEEPALIVE_INTERVAL_MAX)
             
             print(f"[{i+1}/{total}] {title[:60]}")
+
+            if item.get('type') == 'pin' and item.get('content_html'):
+                # Body came with the activity feed: no navigation, no anti-bot exposure.
+                markdown, images, image_sources = html_to_markdown(item['content_html'], images_dir)
+                write_item_markdown(output_dir, i, title, item, '', markdown, images, image_sources)
+                print(f"  [OK] pin, {len(markdown)} 字, {len(images)} 张图片")
+                success += 1
+                record_success()
+                completed_urls.add(url)
+                progress['completed'] = list(completed_urls)
+                save_progress(progress_file, progress)
+                continue
             
             try:
                 await page.goto(url, wait_until='domcontentloaded', timeout=30000)
@@ -848,46 +896,10 @@ async def main():
                     if not final_title.strip():
                         final_title = f'文章{i+1}'
                     
-                    # 清理文件名
-                    safe_title = re.sub(r'[\\/:*?"<>|]', '_', final_title)[:80]
-                    filename = f"{i+1:04d}_{safe_title}.md"
-                    filepath = os.path.join(output_dir, filename)
-                    
-                    author = item.get('author', '') or article_data.get('author', '')
-                    voteup = item.get('voteup', 0)
-                    
-                    # 构建图片源链接列表
-                    img_sources_str = ''
-                    if image_sources:
-                        img_sources_list = [f'{k}: {v}' for k, v in image_sources.items()]
-                        img_sources_str = '\n'.join(img_sources_list)
-                    
-                    # 写入文件
-                    output = f"""---
-title: "{final_title}"
-author: "{author}"
-source: zhihu
-url: "{url}"
-voteup: {voteup}
-images: {len(images)}
-{extra_frontmatter(item)}
----
-
-# {final_title}
-
-> 作者: {author} | 原文: [知乎链接]({url})
-
-{markdown}
-"""
-                    with open(filepath, 'w', encoding='utf-8') as f:
-                        f.write(output)
-                    
-                    # 单独保存图片源链接（可选）
-                    if image_sources:
-                        sources_file = os.path.join(output_dir, f"{i+1:04d}_{safe_title}_sources.txt")
-                        with open(sources_file, 'w', encoding='utf-8') as f:
-                            for local, original in image_sources.items():
-                                f.write(f'{local} -> {original}\n')
+                    write_item_markdown(
+                        output_dir, i, final_title, item, article_data.get('author', ''),
+                        markdown, images, image_sources,
+                    )
                     
                     print(f"  [OK] {len(markdown)} 字, {len(images)} 张图片")
                     success += 1

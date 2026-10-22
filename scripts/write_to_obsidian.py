@@ -203,7 +203,7 @@ def classify_article(title, content_preview, existing_keywords, template_rules):
     if any(w in title for w in ['?', '？', '如何', '怎么', '为什么', '是什么']):
         return '问答与思考'
 
-    return '未分类'
+    return '问答与思考'
 
 
 def parse_article_metadata(filepath):

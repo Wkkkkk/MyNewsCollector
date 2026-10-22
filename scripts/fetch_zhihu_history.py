@@ -34,7 +34,7 @@ WORKSPACE = os.environ.get(
 )
 
 LIKED_OR_COLLECTED_PREFIXES = ("赞同了", "喜欢了", "收藏了")
-TARGET_TYPES = {"answer", "article"}
+TARGET_TYPES = {"answer", "article", "pin"}
 
 # Exit code signaling a dead session (mirrors news_collect.adapters.zhihu.NEEDS_LOGIN_RC).
 NEEDS_LOGIN_RC = 2
@@ -148,7 +148,18 @@ def web_url(target):
         aid = target.get("id")
         if qid and aid:
             return f"https://www.zhihu.com/question/{qid}/answer/{aid}"
+    if target_type == "pin" and target.get("id"):
+        return f"https://www.zhihu.com/pin/{target['id']}"
     return None
+
+
+def pin_title(target, limit=40):
+    """Pins have no title; use the first line of the text, tags stripped."""
+    html = target.get("content_html") or ""
+    text = re.sub(r"<br\s*/?>|</p>", "\n", html)
+    text = re.sub(r"<[^>]+>", "", text)
+    first = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+    return first[:limit] or f"pin_{target.get('id')}"
 
 
 def item_from_activity(activity):
@@ -166,21 +177,28 @@ def item_from_activity(activity):
 
     if target_type == "answer":
         title = (target.get("question") or {}).get("title") or f"answer_{target.get('id')}"
+    elif target_type == "pin":
+        title = pin_title(target)
     else:
         title = target.get("title") or f"article_{target.get('id')}"
 
     author = (target.get("author") or {}).get("name", "")
     ms = activity_ms(activity)
-    return {
+    item = {
         "url": url,
         "title": title,
         "author": author,
-        "voteup": target.get("voteup_count", 0),
+        "voteup": target.get("like_count" if target_type == "pin" else "voteup_count", 0),
         "type": target_type,
         "interaction_action": action,
         "interaction_time": iso_from_ms(ms),
         "activity_id": activity.get("id", ""),
     }
+    if target_type == "pin":
+        # The feed already carries the full pin body; the batch fetcher renders
+        # it from here instead of loading /pin/<id>.
+        item["content_html"] = target.get("content_html") or ""
+    return item
 
 
 def state_path_for(output_json):
@@ -226,7 +244,7 @@ def save_checkpoint(
         "source": profile_url,
         "cutoff": cutoff.isoformat(),
         "until": until.isoformat() if until else "",
-        "filter": "liked_or_collected_answers_and_articles",
+        "filter": "liked_or_collected_answers_articles_and_pins",
         "items": items,
     }
     with open(output_json, "w", encoding="utf-8") as f:
